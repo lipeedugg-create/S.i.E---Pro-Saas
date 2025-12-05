@@ -97,6 +97,7 @@ export const query = (text, params) => pool.query(text, params);
               />
 
               <h3 className="text-white font-bold mb-4">Script SQL Completo (Schema + Seed)</h3>
+              <p className="text-sm text-slate-400 mb-4">Utilize o arquivo <code>database_schema.sql</code> na raiz do projeto ou copie o conteúdo abaixo:</p>
               <CopyBlock 
                 title="database_schema.sql" 
                 lang="sql"
@@ -239,10 +240,10 @@ ON CONFLICT DO NOTHING;
                   <div className="bg-slate-800 p-5 rounded-lg border border-slate-700">
                     <h3 className="text-white font-bold mb-2">Segurança (Auth)</h3>
                     <p className="text-sm text-slate-400 mb-2">
-                        Utilizamos <code>jsonwebtoken</code> para stateless authentication.
+                        Utilizamos <code>jsonwebtoken</code> para stateless authentication. O middleware <code>auth.js</code> intercepta todas as requisições protegidas.
                     </p>
-                    <div className="text-xs font-mono bg-black p-2 rounded text-green-400">
-                        headers: {'{'} Authorization: 'Bearer eyJhbGci...' {'}'}
+                    <div className="text-xs font-mono bg-black p-2 rounded text-green-400 border border-slate-700">
+                        Header Authorization: Bearer eyJhbGciOiJIUzI1Ni...
                     </div>
                   </div>
                 </div>
@@ -289,6 +290,7 @@ app.use(express.json());
 // API Routes
 app.use('/api/auth', authRoutes);
 app.use('/api/admin', adminRoutes);
+app.use('/api/client', clientRoutes);
 
 // Servir Frontend (Production)
 if (process.env.NODE_ENV === 'production') {
@@ -308,13 +310,14 @@ app.listen(3000, () => console.log('Server running on port 3000'));
                 <div className="bg-slate-900 p-6 rounded-lg border border-slate-700 mb-6">
                     <h2 className="text-2xl font-bold text-white mb-2">3. Frontend Architecture (React 19)</h2>
                     <p className="text-slate-400">
-                        O frontend é um SPA (Single Page Application) construído com Vite e React 19. Ele não acessa o banco diretamente, utilizando a camada de serviço <code>api.ts</code>.
+                        O frontend é um SPA (Single Page Application) construído com Vite e React 19. Ele se comunica com o backend via API REST, sem acesso direto ao banco de dados.
                     </p>
                 </div>
 
-                <h3 className="text-white font-bold mb-4">Camada de Serviço (API Client)</h3>
+                <h3 className="text-white font-bold mb-4">Service Layer & Impersonation</h3>
                 <p className="text-slate-400 text-sm mb-4">
-                    O arquivo <code>services/api.ts</code> centraliza todas as chamadas <code>fetch</code> e injeta automaticamente o token JWT do localStorage.
+                    O arquivo <code>services/api.ts</code> centraliza todas as chamadas <code>fetch</code> e gerencia a injeção do token JWT. 
+                    O recurso de <strong>Impersonation</strong> permite que administradores gerem tokens válidos para qualquer usuário.
                 </p>
 
                 <CopyBlock 
@@ -331,7 +334,7 @@ const getHeaders = () => ({
 export const api = {
     login: async (email, password) => { /* ... */ },
     
-    // Impersonation Feature
+    // Impersonation Feature: Admin gera token de Client
     impersonate: async (userId: string) => {
         const res = await fetch(\`\${API_URL}/admin/users/\${userId}/impersonate\`, {
             method: 'POST',
@@ -348,23 +351,23 @@ export const api = {
                     `}
                 />
 
-                <h3 className="text-white font-bold mb-4">Componentes Principais</h3>
+                <h3 className="text-white font-bold mb-4">Componentes Principais Refatorados</h3>
                 <ul className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm text-slate-400">
                     <li className="bg-slate-800 p-3 rounded border border-slate-700">
-                        <strong className="text-white block">App.tsx</strong>
-                        Gerenciador de rotas e estado global de autenticação (currentUser).
+                        <strong className="text-white block mb-1">AdminUsers.tsx</strong>
+                        Nova interface de gestão de usuários com modais para edição e botão de Impersonation.
                     </li>
                     <li className="bg-slate-800 p-3 rounded border border-slate-700">
-                        <strong className="text-white block">AdminDashboard.tsx</strong>
-                        Visão geral de KPIs financeiros e gestão de assinaturas.
+                        <strong className="text-white block mb-1">AdminPlugins.tsx</strong>
+                        Marketplace para instalar e ativar plugins, modificando a tabela <code>plugins</code> e <code>plan_plugins</code>.
                     </li>
                     <li className="bg-slate-800 p-3 rounded border border-slate-700">
-                        <strong className="text-white block">ClientConfig.tsx</strong>
-                        Interface para o cliente definir keywords e URLs para a IA monitorar.
+                        <strong className="text-white block mb-1">ClientConfig.tsx</strong>
+                        Interface de auto-atendimento para o cliente definir keywords de monitoramento (JSONB).
                     </li>
                     <li className="bg-slate-800 p-3 rounded border border-slate-700">
-                        <strong className="text-white block">Login.tsx</strong>
-                        Autenticação segura e tratamento de erros de conexão.
+                        <strong className="text-white block mb-1">Login.tsx</strong>
+                        Autenticação segura com tratamento de erros e feedback de carregamento.
                     </li>
                 </ul>
              </div>
@@ -397,7 +400,7 @@ export const api = {
 
               <h3 className="text-white font-bold mb-4">Lógica de Coleta (Collector Service)</h3>
               <p className="text-slate-400 text-sm mb-4">
-                  O arquivo <code>services/collectorService.js</code> é acionado via CRON. Ele itera sobre configurações ativas, "coleta" dados (mock de crawler) e envia para análise.
+                  O arquivo <code>services/collectorService.js</code> é acionado via CRON. Ele itera sobre configurações ativas, "coleta" dados (simulação de crawler) e envia para análise.
               </p>
 
               <CopyBlock 
@@ -420,9 +423,10 @@ async function analyzeWithGemini(text) {
     });
 
     // Cálculo de Custos para Auditoria
+    // Preço hipotético Gemini 2.5 Flash: $0.10 input / $0.30 output (por milhão)
     const usage = response.usageMetadata;
-    const cost = (usage.promptTokenCount / 1000 * 0.000125) + 
-                 (usage.candidatesTokenCount / 1000 * 0.000375);
+    const cost = (usage.promptTokenCount / 1000000 * 0.10) + 
+                 (usage.candidatesTokenCount / 1000000 * 0.30);
 
     return { result: JSON.parse(response.text), cost };
 }
@@ -462,6 +466,7 @@ NODE_ENV=production
 PORT=3000
 
 # Database (PostgreSQL)
+# Use a string de conexão completa fornecida pelo seu provedor (Supabase, Neon, AWS RDS)
 DATABASE_URL=postgres://user:pass@host:5432/sie_pro
 
 # Security
@@ -473,22 +478,18 @@ API_KEY=AIzaSy...
                   `}
               />
 
-              <h3 className="text-white font-bold mb-4">2. Build Process</h3>
-              <CopyBlock 
-                  title="Terminal"
-                  lang="bash"
-                  code={`
-# 1. Instalar dependências
-npm install
-
-# 2. Compilar o Frontend (Gera pasta /dist)
-npm run build
-
-# 3. Iniciar o Servidor (API + Static)
-npm start
-# O comando 'npm start' executa: node server.js
-                  `}
-              />
+              <h3 className="text-white font-bold mb-4">2. Build & Start Process</h3>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
+                <div className="bg-slate-800 p-4 rounded border border-slate-700">
+                    <p className="text-xs text-slate-400 mb-2">Comandos de Build</p>
+                    <pre className="font-mono text-sm text-green-400">npm install</pre>
+                    <pre className="font-mono text-sm text-green-400">npm run build</pre>
+                </div>
+                <div className="bg-slate-800 p-4 rounded border border-slate-700">
+                    <p className="text-xs text-slate-400 mb-2">Comando de Start</p>
+                    <pre className="font-mono text-sm text-blue-400">npm start</pre>
+                </div>
+              </div>
 
               <h3 className="text-white font-bold mb-4">3. Cron Jobs (Automação)</h3>
               <p className="text-slate-400 text-sm mb-4">
