@@ -47,7 +47,7 @@ export const AdminUsers: React.FC<AdminUsersProps> = ({ onLogin }) => {
 
   const handleImpersonate = async (user: User) => {
     if (!onLogin) return;
-    if (!confirm(`Tem certeza que deseja acessar o painel como "${user.name}"?`)) return;
+    if (!confirm(`Tem certeza que deseja acessar o painel como "${user.name}"?\nIsso encerrará sua sessão administrativa atual.`)) return;
 
     try {
       const { user: impersonatedUser, token } = await api.impersonate(user.id);
@@ -169,7 +169,7 @@ export const AdminUsers: React.FC<AdminUsersProps> = ({ onLogin }) => {
                                  <button
                                     onClick={() => handleImpersonate(user)}
                                     className="bg-slate-700 hover:bg-slate-600 text-slate-300 border border-slate-600 text-xs font-bold py-1.5 px-3 rounded transition-all flex items-center gap-1 group"
-                                    title="Acessar como este usuário"
+                                    title="Acessar painel como este usuário"
                                  >
                                     <span className="group-hover:text-white">Login ➜</span>
                                  </button>
