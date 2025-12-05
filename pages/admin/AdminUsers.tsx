@@ -47,7 +47,7 @@ export const AdminUsers: React.FC<AdminUsersProps> = ({ onLogin }) => {
 
   const handleImpersonate = async (user: User) => {
     if (!onLogin) return;
-    if (!confirm(`Tem certeza que deseja acessar o painel como "${user.name}"?\nIsso encerrará sua sessão administrativa atual.`)) return;
+    if (!confirm(`⚠ ATENÇÃO: Você está prestes a entrar como "${user.name}".\n\nIsso encerrará sua sessão administrativa atual e abrirá o painel do cliente.\n\nDeseja continuar?`)) return;
 
     try {
       const { user: impersonatedUser, token } = await api.impersonate(user.id);
@@ -168,15 +168,15 @@ export const AdminUsers: React.FC<AdminUsersProps> = ({ onLogin }) => {
                              {user.role !== 'admin' && (
                                  <button
                                     onClick={() => handleImpersonate(user)}
-                                    className="bg-slate-700 hover:bg-slate-600 text-slate-300 border border-slate-600 text-xs font-bold py-1.5 px-3 rounded transition-all flex items-center gap-1 group"
+                                    className="bg-indigo-600/10 hover:bg-indigo-600 text-indigo-400 hover:text-white border border-indigo-600/30 hover:border-indigo-500 text-xs font-bold py-1.5 px-3 rounded transition-all flex items-center gap-1 group shadow-lg shadow-indigo-900/10"
                                     title="Acessar painel como este usuário"
                                  >
-                                    <span className="group-hover:text-white">Login ➜</span>
+                                    <span>Login ➜</span>
                                  </button>
                              )}
                              <button 
                                onClick={() => handleEdit(user)}
-                               className="text-blue-400 hover:text-white font-medium hover:underline text-xs bg-blue-900/10 hover:bg-blue-600/20 px-3 py-1.5 rounded border border-transparent hover:border-blue-500/30 transition-all"
+                               className="text-slate-400 hover:text-white font-medium hover:underline text-xs px-3 py-1.5 transition-all"
                              >
                                Editar
                              </button>

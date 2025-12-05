@@ -76,6 +76,7 @@ export const Documentation: React.FC<DocumentationProps> = ({ onClose }) => {
                 <h2 className="text-2xl font-bold text-white mb-2">1. Schema PostgreSQL & Data Source</h2>
                 <p className="text-slate-400">
                     O sistema agora está 100% conectado a um banco de dados PostgreSQL real. Todos os dados simulados (Mock Data) foram removidos da aplicação.
+                    Use o arquivo <code>database_schema.sql</code> para criar a estrutura inicial.
                 </p>
               </div>
 
