@@ -37,7 +37,7 @@ export const Documentation: React.FC<DocumentationProps> = ({ onClose }) => {
            <div className="w-8 h-8 bg-emerald-600 rounded flex items-center justify-center font-bold text-white text-xs">DOC</div>
            <div>
              <h1 className="text-white font-bold text-sm leading-tight">S.I.E. PRO - Documentação Técnica</h1>
-             <p className="text-[10px] text-slate-500 font-mono">v3.1 - Produção (Real DB)</p>
+             <p className="text-[10px] text-slate-500 font-mono">v3.1 - Produção (Full Stack)</p>
            </div>
         </div>
         <div className="flex items-center gap-4">
@@ -75,28 +75,28 @@ export const Documentation: React.FC<DocumentationProps> = ({ onClose }) => {
               <div className="bg-slate-900 p-6 rounded-lg border border-slate-700 mb-6">
                 <h2 className="text-2xl font-bold text-white mb-2">1. Schema PostgreSQL & Data Source</h2>
                 <p className="text-slate-400">
-                    O sistema agora está 100% conectado a um banco de dados PostgreSQL real. Utilize o script abaixo para inicializar a estrutura completa.
+                    O sistema utiliza PostgreSQL com a extensão <code>pgcrypto</code> para geração de UUIDs. Execute este script para criar todas as tabelas e dados iniciais.
                 </p>
               </div>
 
               <CopyBlock 
-                title="Conexão (config/db.js)" 
+                title="config/db.js (Conexão)" 
                 lang="javascript"
                 code={`
-// A conexão utiliza Pool do 'pg' para eficiência
+import pg from 'pg';
+const { Pool } = pg;
+
+// Pool gerenciado para alta performance
 const pool = new Pool({
-  connectionString: process.env.DATABASE_URL || \`postgres://\${user}:\${pass}@\${host}:\${port}/\${db}\`,
+  connectionString: process.env.DATABASE_URL,
   ssl: process.env.NODE_ENV === 'production' ? { rejectUnauthorized: false } : false
 });
 
-// Todas as queries do backend passam por aqui
 export const query = (text, params) => pool.query(text, params);
                 `}
               />
 
-              <h3 className="text-white font-bold mb-4">Script de Inicialização Completo</h3>
-              <p className="text-slate-400 text-sm mb-4">Execute este SQL no seu banco de dados PostgreSQL para criar as tabelas e inserir os dados iniciais.</p>
-
+              <h3 className="text-white font-bold mb-4">Script SQL Completo (Schema + Seed)</h3>
               <CopyBlock 
                 title="database_schema.sql" 
                 lang="sql"
@@ -115,25 +115,25 @@ CREATE TABLE IF NOT EXISTS users (
 
 -- 2. SaaS Plans
 CREATE TABLE IF NOT EXISTS plans (
-    id VARCHAR(50) PRIMARY KEY, -- e.g., 'starter', 'pro'
+    id VARCHAR(50) PRIMARY KEY,
     name VARCHAR(100) NOT NULL,
     price DECIMAL(10, 2) NOT NULL,
     description TEXT
 );
 
--- 3. Plugins / Addons (Marketplace)
+-- 3. Plugins
 CREATE TABLE IF NOT EXISTS plugins (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     name VARCHAR(100) NOT NULL,
     description TEXT,
     version VARCHAR(20) DEFAULT '1.0.0',
-    icon VARCHAR(50), -- Emoji or URL
-    status VARCHAR(50) DEFAULT 'available' CHECK (status IN ('available', 'installed', 'active')),
+    icon VARCHAR(50),
+    status VARCHAR(50) DEFAULT 'available',
     category VARCHAR(50) DEFAULT 'utility',
     price DECIMAL(10, 2) DEFAULT 0.00
 );
 
--- 4. Plan <> Plugins (Feature distribution)
+-- 4. Plan Plugins (Relation)
 CREATE TABLE IF NOT EXISTS plan_plugins (
     plan_id VARCHAR(50) REFERENCES plans(id) ON DELETE CASCADE,
     plugin_id UUID REFERENCES plugins(id) ON DELETE CASCADE,
@@ -145,13 +145,13 @@ CREATE TABLE IF NOT EXISTS subscriptions (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     user_id UUID REFERENCES users(id) ON DELETE CASCADE,
     plan_id VARCHAR(50) REFERENCES plans(id),
-    status VARCHAR(20) DEFAULT 'active' CHECK (status IN ('active', 'expired', 'cancelled')),
+    status VARCHAR(20) DEFAULT 'active',
     start_date DATE DEFAULT CURRENT_DATE,
     end_date DATE,
     created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
 );
 
--- 6. Monitoring Configuration (User Settings)
+-- 6. Monitoring Config
 CREATE TABLE IF NOT EXISTS monitoring_configs (
     user_id UUID PRIMARY KEY REFERENCES users(id) ON DELETE CASCADE,
     keywords JSONB DEFAULT '[]',
@@ -161,31 +161,30 @@ CREATE TABLE IF NOT EXISTS monitoring_configs (
     updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
 );
 
--- 7. AI Analysis Results (Master Items)
+-- 7. Master Items (AI Results)
 CREATE TABLE IF NOT EXISTS master_items (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     user_id UUID REFERENCES users(id) ON DELETE CASCADE,
     source_url TEXT,
     analyzed_content TEXT,
     ai_summary TEXT,
-    detected_keywords JSONB, -- Array of strings
-    sentiment_score DECIMAL(3,2), -- -1.0 to 1.0
+    detected_keywords JSONB,
     created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
 );
 
--- 8. Financial Payments (Manual Entry by Admin)
+-- 8. Payments
 CREATE TABLE IF NOT EXISTS payments (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     subscription_id UUID REFERENCES subscriptions(id) ON DELETE SET NULL,
     amount DECIMAL(10, 2) NOT NULL,
     payment_date DATE DEFAULT CURRENT_DATE,
-    reference_id VARCHAR(100), -- Transaction ID / PIX Key
+    reference_id VARCHAR(100),
     notes TEXT,
     admin_recorded_by UUID REFERENCES users(id),
     created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
 );
 
--- 9. Audit Logs (AI Usage & Costs)
+-- 9. Audit Logs (Gemini Usage)
 CREATE TABLE IF NOT EXISTS requests_log (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     user_id UUID REFERENCES users(id) ON DELETE SET NULL,
@@ -197,96 +196,177 @@ CREATE TABLE IF NOT EXISTS requests_log (
     timestamp TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
 );
 
--- SEED DATA ----------------------------------------------------
-
--- Plans
+-- SEED DATA --
 INSERT INTO plans (id, name, price, description) VALUES
-('starter', 'Starter Plan', 99.00, 'Monitoramento básico para pequenas empresas'),
-('pro', 'Enterprise Pro', 299.00, 'IA avançada e tempo real'),
-('gov', 'Government', 999.00, 'Infraestrutura dedicada')
+('starter', 'Starter Plan', 99.00, 'Basic Monitoring'),
+('pro', 'Enterprise Pro', 299.00, 'AI Advanced');
+
+INSERT INTO users (id, name, email, password_hash, role) VALUES
+('a0eebc99-9c0b-4ef8-bb6d-6bb9bd380a11', 'Admin Master', 'admin@sie.pro', '$2a$10$X7Xk5y5n5j5k5l5m5n5o5p5q5r5s5t5u5v5w5x5y5z5A5B5C5D5E', 'admin'),
+('b1eebc99-9c0b-4ef8-bb6d-6bb9bd380a22', 'Acme Corp', 'client@acme.com', '$2a$10$X7Xk5y5n5j5k5l5m5n5o5p5q5r5s5t5u5v5w5x5y5z5A5B5C5D5E', 'client')
 ON CONFLICT DO NOTHING;
 
--- Users (Password is '123456' hashed with bcrypt cost 10)
--- Admin
-INSERT INTO users (id, name, email, password_hash, role) VALUES
-('a0eebc99-9c0b-4ef8-bb6d-6bb9bd380a11', 'Admin Master', 'admin@sie.pro', '$2a$10$X7Xk5y5n5j5k5l5m5n5o5p5q5r5s5t5u5v5w5x5y5z5A5B5C5D5E', 'admin')
-ON CONFLICT (email) DO NOTHING;
-
--- Client
-INSERT INTO users (id, name, email, password_hash, role) VALUES
-('b1eebc99-9c0b-4ef8-bb6d-6bb9bd380a22', 'Acme Corp', 'client@acme.com', '$2a$10$X7Xk5y5n5j5k5l5m5n5o5p5q5r5s5t5u5v5w5x5y5z5A5B5C5D5E', 'client')
-ON CONFLICT (email) DO NOTHING;
-
--- Subscription for Client
 INSERT INTO subscriptions (user_id, plan_id, status, end_date) VALUES
 ('b1eebc99-9c0b-4ef8-bb6d-6bb9bd380a22', 'pro', 'active', CURRENT_DATE + INTERVAL '30 days')
 ON CONFLICT DO NOTHING;
-
--- Plugins
-INSERT INTO plugins (name, description, icon, status, category, price) VALUES
-('Dark Web Monitor', 'Rastreia vazamento de credenciais em fóruns underground.', '🕵️‍♂️', 'available', 'security', 49.90),
-('PDF Reports', 'Gera relatórios executivos em PDF com um clique.', '📄', 'installed', 'utility', 19.90),
-('Slack Integration', 'Envia alertas de crise diretamente no canal do Slack.', '📢', 'active', 'integration', 0.00),
-('Sentiment AI+', 'Análise de sentimento granular (Emoções: Raiva, Alegria).', '🧠', 'available', 'analytics', 29.90)
-ON CONFLICT DO NOTHING;
-
--- Config for Client
-INSERT INTO monitoring_configs (user_id, keywords, urls_to_track) VALUES
-('b1eebc99-9c0b-4ef8-bb6d-6bb9bd380a22', '["Acme Corp", "Crise", "Vazamento"]', '["https://news.google.com", "https://twitter.com/search?q=acme"]')
-ON CONFLICT (user_id) DO NOTHING;
                 `}
               />
             </div>
           )}
 
-           {/* TAB: FRONTEND */}
-           {activeTab === 'frontend' && (
+           {/* TAB: BACKEND */}
+           {activeTab === 'backend' && (
              <div className="animate-fade-in space-y-6">
                 <div className="bg-slate-900 p-6 rounded-lg border border-slate-700 mb-6">
-                    <h2 className="text-2xl font-bold text-white mb-2">2. Frontend Architecture (React 19)</h2>
+                    <h2 className="text-2xl font-bold text-white mb-2">2. Backend Architecture (Node.js)</h2>
                     <p className="text-slate-400">
-                        O frontend foi refatorado para remover dependências de <code>db.ts</code> (Mock). Toda a comunicação é feita via API RESTful.
+                        O backend é construído com Express.js e serve como API Gateway para o Frontend e como controlador para o Banco de Dados.
                     </p>
                 </div>
 
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-8">
                   <div className="bg-slate-800 p-5 rounded-lg border border-slate-700">
-                    <h3 className="text-white font-bold mb-2 flex items-center gap-2">
-                       <span className="text-blue-500">🛠</span> api.ts (Service Layer)
-                    </h3>
-                    <p className="text-sm text-slate-400">
-                      Centraliza chamadas <code>fetch</code> para o backend. Gerencia tokens JWT e tratamento de erros.
-                    </p>
+                    <h3 className="text-white font-bold mb-2">Estrutura de Pastas</h3>
+                    <ul className="text-sm text-slate-400 space-y-2 font-mono">
+                        <li>/config/db.js <span className="text-slate-600">// Conexão PG</span></li>
+                        <li>/middleware/auth.js <span className="text-slate-600">// JWT Guard</span></li>
+                        <li>/routes/admin.js <span className="text-slate-600">// Rotas Admin</span></li>
+                        <li>/routes/client.js <span className="text-slate-600">// Rotas User</span></li>
+                        <li>/services/collectorService.js <span className="text-slate-600">// IA Core</span></li>
+                        <li>server.js <span className="text-slate-600">// Entry Point</span></li>
+                    </ul>
                   </div>
                   <div className="bg-slate-800 p-5 rounded-lg border border-slate-700">
-                    <h3 className="text-white font-bold mb-2 flex items-center gap-2">
-                       <span className="text-green-500">👥</span> AdminUsers.tsx
-                    </h3>
-                    <p className="text-sm text-slate-400">
-                      <strong>Novo Feature:</strong> Gestão completa de usuários (CRUD).
-                      Inclui botão <strong>"Login ➜"</strong> para Impersonificação (Acesso administrativo à conta do cliente).
+                    <h3 className="text-white font-bold mb-2">Segurança (Auth)</h3>
+                    <p className="text-sm text-slate-400 mb-2">
+                        Utilizamos <code>jsonwebtoken</code> para stateless authentication.
                     </p>
+                    <div className="text-xs font-mono bg-black p-2 rounded text-green-400">
+                        headers: {'{'} Authorization: 'Bearer eyJhbGci...' {'}'}
+                    </div>
                   </div>
                 </div>
 
-                <h3 className="text-white font-bold mb-4">User Management & Impersonation</h3>
-                <p className="text-slate-400 mb-4 text-sm">
-                    A funcionalidade de "Impersonate" permite que administradores gerem um token temporário para qualquer usuário, facilitando o suporte técnico.
-                </p>
                 <CopyBlock 
-                    title="Componente: AdminUsers.tsx"
-                    lang="typescript"
+                    title="middleware/auth.js"
+                    lang="javascript"
                     code={`
-// Exemplo de Impersonation no Frontend
-const handleImpersonate = async (user: User) => {
-  if (confirm(\`Acessar como \${user.name}?\`)) {
-    const { token, user: impersonated } = await api.impersonate(user.id);
-    localStorage.setItem('token', token);
-    onLogin(impersonated); // Atualiza estado global do App
+import jwt from 'jsonwebtoken';
+
+export const authenticate = (req, res, next) => {
+  const token = req.headers.authorization?.split(' ')[1];
+  if (!token) return res.status(401).json({ message: 'No token' });
+
+  try {
+    const decoded = jwt.verify(token, process.env.JWT_SECRET);
+    req.user = decoded; // { id, role, iat, exp }
+    next();
+  } catch (e) {
+    return res.status(403).json({ message: 'Invalid token' });
   }
+};
+
+export const authorizeAdmin = (req, res, next) => {
+  if (req.user.role !== 'admin') return res.status(403).send('Admin only');
+  next();
 };
                     `}
                 />
+
+                <CopyBlock 
+                    title="server.js (Entry Point)"
+                    lang="javascript"
+                    code={`
+import express from 'express';
+import cors from 'cors';
+import authRoutes from './routes/auth.js';
+// ... imports
+
+const app = express();
+app.use(cors());
+app.use(express.json());
+
+// API Routes
+app.use('/api/auth', authRoutes);
+app.use('/api/admin', adminRoutes);
+
+// Servir Frontend (Production)
+if (process.env.NODE_ENV === 'production') {
+    app.use(express.static('dist'));
+    app.get('*', (req, res) => res.sendFile('dist/index.html'));
+}
+
+app.listen(3000, () => console.log('Server running on port 3000'));
+                    `}
+                />
+             </div>
+           )}
+
+           {/* TAB: FRONTEND */}
+           {activeTab === 'frontend' && (
+             <div className="animate-fade-in space-y-6">
+                <div className="bg-slate-900 p-6 rounded-lg border border-slate-700 mb-6">
+                    <h2 className="text-2xl font-bold text-white mb-2">3. Frontend Architecture (React 19)</h2>
+                    <p className="text-slate-400">
+                        O frontend é um SPA (Single Page Application) construído com Vite e React 19. Ele não acessa o banco diretamente, utilizando a camada de serviço <code>api.ts</code>.
+                    </p>
+                </div>
+
+                <h3 className="text-white font-bold mb-4">Camada de Serviço (API Client)</h3>
+                <p className="text-slate-400 text-sm mb-4">
+                    O arquivo <code>services/api.ts</code> centraliza todas as chamadas <code>fetch</code> e injeta automaticamente o token JWT do localStorage.
+                </p>
+
+                <CopyBlock 
+                    title="services/api.ts"
+                    lang="typescript"
+                    code={`
+const API_URL = import.meta.env.VITE_API_URL || '/api';
+
+const getHeaders = () => ({
+    'Content-Type': 'application/json',
+    'Authorization': \`Bearer \${localStorage.getItem('token')}\`
+});
+
+export const api = {
+    login: async (email, password) => { /* ... */ },
+    
+    // Impersonation Feature
+    impersonate: async (userId: string) => {
+        const res = await fetch(\`\${API_URL}/admin/users/\${userId}/impersonate\`, {
+            method: 'POST',
+            headers: getHeaders()
+        });
+        return res.json(); // Retorna { token, user } do alvo
+    },
+
+    getLogs: async () => {
+        const res = await fetch(\`\${API_URL}/admin/logs\`, { headers: getHeaders() });
+        return res.json();
+    }
+};
+                    `}
+                />
+
+                <h3 className="text-white font-bold mb-4">Componentes Principais</h3>
+                <ul className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm text-slate-400">
+                    <li className="bg-slate-800 p-3 rounded border border-slate-700">
+                        <strong className="text-white block">App.tsx</strong>
+                        Gerenciador de rotas e estado global de autenticação (currentUser).
+                    </li>
+                    <li className="bg-slate-800 p-3 rounded border border-slate-700">
+                        <strong className="text-white block">AdminDashboard.tsx</strong>
+                        Visão geral de KPIs financeiros e gestão de assinaturas.
+                    </li>
+                    <li className="bg-slate-800 p-3 rounded border border-slate-700">
+                        <strong className="text-white block">ClientConfig.tsx</strong>
+                        Interface para o cliente definir keywords e URLs para a IA monitorar.
+                    </li>
+                    <li className="bg-slate-800 p-3 rounded border border-slate-700">
+                        <strong className="text-white block">Login.tsx</strong>
+                        Autenticação segura e tratamento de erros de conexão.
+                    </li>
+                </ul>
              </div>
            )}
 
@@ -294,105 +374,129 @@ const handleImpersonate = async (user: User) => {
           {activeTab === 'ai-core' && (
              <div className="animate-fade-in space-y-6">
               <div className="bg-slate-900 p-6 rounded-lg border border-slate-700 mb-6">
-                <h2 className="text-2xl font-bold text-white mb-2">3. Gemini 2.5 Flash Integration</h2>
+                <h2 className="text-2xl font-bold text-white mb-2">4. Gemini AI Engine & Auditoria</h2>
                 <p className="text-slate-400">
-                   O core de monitoramento agora reside exclusivamente no backend (<code>services/collectorService.js</code>).
+                   A inteligência do sistema reside no backend, utilizando a biblioteca <code>@google/genai</code> para processar conteúdo textual.
                 </p>
               </div>
 
               <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
                  <div className="p-4 bg-slate-800 rounded border border-slate-700">
-                    <div className="font-bold text-white mb-1">System Instructions</div>
-                    <div className="text-xs text-slate-400">Define a persona "Analista Sênior" para o modelo.</div>
+                    <div className="font-bold text-white mb-1">Modelo</div>
+                    <div className="text-xs text-blue-400 font-mono">gemini-2.5-flash</div>
                  </div>
                  <div className="p-4 bg-slate-800 rounded border border-slate-700">
-                    <div className="font-bold text-white mb-1">JSON Mode</div>
-                    <div className="text-xs text-slate-400">Garante outputs estruturados para inserção direta no DB.</div>
+                    <div className="font-bold text-white mb-1">Formato</div>
+                    <div className="text-xs text-yellow-400 font-mono">JSON Mode</div>
                  </div>
                  <div className="p-4 bg-slate-800 rounded border border-slate-700">
-                    <div className="font-bold text-white mb-1">Custo Real</div>
-                    <div className="text-xs text-slate-400">Auditoria precisa de tokens de entrada/saída.</div>
+                    <div className="font-bold text-white mb-1">Custo</div>
+                    <div className="text-xs text-emerald-400 font-mono">$0.10 / 1M tokens (in)</div>
                  </div>
               </div>
+
+              <h3 className="text-white font-bold mb-4">Lógica de Coleta (Collector Service)</h3>
+              <p className="text-slate-400 text-sm mb-4">
+                  O arquivo <code>services/collectorService.js</code> é acionado via CRON. Ele itera sobre configurações ativas, "coleta" dados (mock de crawler) e envia para análise.
+              </p>
 
               <CopyBlock 
                 title="backend/services/collectorService.js" 
                 lang="javascript"
                 code={`
-// Configuração do Modelo
-const response = await ai.models.generateContent({
-    model: 'gemini-2.5-flash',
-    contents: text,
-    config: {
-        systemInstruction: "Analise o sentimento e risco...",
-        responseMimeType: 'application/json'
-    }
-});
-// O resultado é salvo na tabela 'master_items'
-// O custo é salvo na tabela 'requests_log'
+import { GoogleGenAI } from "@google/genai";
+
+const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
+
+async function analyzeWithGemini(text) {
+    const response = await ai.models.generateContent({
+        model: 'gemini-2.5-flash',
+        contents: text,
+        config: {
+            // Instrução de Sistema para forçar JSON estruturado
+            systemInstruction: "Você é um analista de risco corporativo. Retorne JSON: { sentiment, summary, keywords[] }.",
+            responseMimeType: 'application/json'
+        }
+    });
+
+    // Cálculo de Custos para Auditoria
+    const usage = response.usageMetadata;
+    const cost = (usage.promptTokenCount / 1000 * 0.000125) + 
+                 (usage.candidatesTokenCount / 1000 * 0.000375);
+
+    return { result: JSON.parse(response.text), cost };
+}
                 `}
               />
-            </div>
-          )}
 
-          {/* TAB: BACKEND */}
-          {activeTab === 'backend' && (
-             <div className="animate-fade-in space-y-6">
-                <h2 className="text-2xl font-bold text-white mb-2">4. Backend API Routes</h2>
-                <p className="text-slate-400 mb-4">Endpoints REST protegidos por JWT Middleware.</p>
-                <div className="space-y-2 font-mono text-sm">
-                    <div className="flex gap-4 p-3 bg-slate-900 border border-slate-800 rounded">
-                        <span className="text-green-400 font-bold">GET</span>
-                        <span className="text-slate-300">/api/admin/users</span>
-                        <span className="text-slate-500 ml-auto">Lista todos os usuários</span>
-                    </div>
-                    <div className="flex gap-4 p-3 bg-slate-900 border border-slate-800 rounded">
-                        <span className="text-blue-400 font-bold">POST</span>
-                        <span className="text-slate-300">/api/admin/users</span>
-                        <span className="text-slate-500 ml-auto">Cria novo usuário</span>
-                    </div>
-                    <div className="flex gap-4 p-3 bg-slate-900 border border-slate-800 rounded">
-                        <span className="text-yellow-400 font-bold">POST</span>
-                        <span className="text-slate-300">/api/admin/users/:id/impersonate</span>
-                        <span className="text-slate-500 ml-auto">Gera token de acesso (Admin Only)</span>
-                    </div>
-                    <div className="flex gap-4 p-3 bg-slate-900 border border-slate-800 rounded">
-                        <span className="text-purple-400 font-bold">POST</span>
-                        <span className="text-slate-300">/api/monitoring/trigger</span>
-                        <span className="text-slate-500 ml-auto">Dispara coleta IA (Requer X-CRON-KEY)</span>
-                    </div>
-                </div>
-             </div>
+              <div className="bg-amber-900/20 border border-amber-900/50 p-4 rounded-lg">
+                  <h4 className="text-amber-500 font-bold text-sm mb-2">Auditoria Financeira (requests_log)</h4>
+                  <p className="text-slate-400 text-xs">
+                      Cada chamada à API do Gemini é registrada na tabela <code>requests_log</code> com os tokens exatos de entrada/saída e o custo calculado em USD. Isso permite faturamento transparente por uso.
+                  </p>
+              </div>
+            </div>
           )}
 
           {/* TAB: DEPLOY */}
           {activeTab === 'deploy' && (
              <div className="animate-fade-in space-y-6">
-              <h2 className="text-2xl font-bold text-white mb-6">5. Ambiente de Produção</h2>
+              <h2 className="text-2xl font-bold text-white mb-6">5. Deploy em Produção</h2>
               
               <div className="bg-emerald-950/20 border border-emerald-800 p-6 rounded-lg mb-8">
                   <h3 className="text-emerald-400 font-bold text-lg mb-4 flex items-center gap-2">
                       <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span>
-                      Status: Conectado
+                      Status: Production Ready
                   </h3>
                   <p className="text-slate-300 text-sm">
-                      O frontend estático (Vite Build) é servido pelo Express, que se conecta ao PostgreSQL.
-                      Não há mais dados locais/mockados.
+                      A aplicação está pronta para deploy em containers (Docker) ou PaaS (Heroku, Railway, Render). O servidor Node.js serve tanto a API quanto os arquivos estáticos do React.
                   </p>
               </div>
 
-              <div>
-                <h4 className="text-white font-bold text-sm mb-2">Variáveis de Ambiente (.env)</h4>
-                <pre className="bg-black p-4 rounded-lg text-xs font-mono text-emerald-300 overflow-x-auto border border-emerald-900/50">
-{`DB_HOST=127.0.0.1
-DB_PORT=3306
-DB_NAME=sie301
-DB_USER=sie301
-DB_PASSWORD=Gegerminal180
-API_KEY=sAIza...
-JWT_SECRET=...
-CRON_KEY=...`}
-                </pre>
+              <h3 className="text-white font-bold mb-4">1. Variáveis de Ambiente (.env)</h3>
+              <CopyBlock 
+                  title=".env (Production)"
+                  lang="bash"
+                  code={`
+NODE_ENV=production
+PORT=3000
+
+# Database (PostgreSQL)
+DATABASE_URL=postgres://user:pass@host:5432/sie_pro
+
+# Security
+JWT_SECRET=super_secure_random_string_here
+CRON_KEY=secure_key_for_external_triggers
+
+# Google AI
+API_KEY=AIzaSy...
+                  `}
+              />
+
+              <h3 className="text-white font-bold mb-4">2. Build Process</h3>
+              <CopyBlock 
+                  title="Terminal"
+                  lang="bash"
+                  code={`
+# 1. Instalar dependências
+npm install
+
+# 2. Compilar o Frontend (Gera pasta /dist)
+npm run build
+
+# 3. Iniciar o Servidor (API + Static)
+npm start
+# O comando 'npm start' executa: node server.js
+                  `}
+              />
+
+              <h3 className="text-white font-bold mb-4">3. Cron Jobs (Automação)</h3>
+              <p className="text-slate-400 text-sm mb-4">
+                  Para o monitoramento automático funcionar, configure um serviço externo (GitHub Actions, EasyCron, Cronjob.org) para chamar o endpoint de trigger periodicamente.
+              </p>
+              <div className="bg-slate-900 p-4 rounded border border-slate-800 font-mono text-xs text-slate-300">
+                  POST https://seudominio.com/api/monitoring/trigger<br/>
+                  Headers: <span className="text-blue-400">X-CRON-KEY: sua_chave_secreta</span>
               </div>
             </div>
           )}
