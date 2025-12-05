@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { User, Subscription } from '../types';
-import { db } from '../services/db';
+import { api } from '../services/api'; // Substituição DB -> API
 
 interface PaymentModalProps {
   user: User;
@@ -15,26 +15,31 @@ export const PaymentModal: React.FC<PaymentModalProps> = ({ user, subscription, 
   const [refId, setRefId] = useState('');
   const [notes, setNotes] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [error, setError] = useState('');
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!subscription) return;
-
+    setError('');
     setIsSubmitting(true);
     
-    // Simulate API delay
-    setTimeout(() => {
-      db.recordPayment({
+    try {
+      // POST para /api/admin/payments
+      await api.recordPayment({
         subscription_id: subscription.id,
         amount: parseFloat(amount),
-        payment_date: new Date().toISOString().split('T')[0], // Today
+        payment_date: new Date().toISOString().split('T')[0],
         reference_id: refId,
         admin_recorded_by: adminId,
         notes: notes
       });
+      onSuccess(); // Fecha e recarrega a tabela pai
+    } catch (err: any) {
+      console.error(err);
+      setError(err.message || 'Erro ao processar pagamento.');
+    } finally {
       setIsSubmitting(false);
-      onSuccess();
-    }, 800);
+    }
   };
 
   if (!subscription) return null;
@@ -61,7 +66,7 @@ export const PaymentModal: React.FC<PaymentModalProps> = ({ user, subscription, 
                 step="0.01"
                 value={amount}
                 onChange={(e) => setAmount(e.target.value)}
-                className="w-full bg-slate-950 border border-slate-700 text-white rounded-lg pl-8 pr-4 py-2.5 focus:border-green-500 focus:ring-1 focus:ring-green-500 outline-none transition-colors"
+                className="w-full bg-slate-950 border border-slate-700 text-white rounded-lg pl-8 pr-4 py-2.5 focus:border-green-500 outline-none"
                 placeholder="0.00"
               />
             </div>
@@ -74,7 +79,7 @@ export const PaymentModal: React.FC<PaymentModalProps> = ({ user, subscription, 
               required
               value={refId}
               onChange={(e) => setRefId(e.target.value)}
-              className="w-full bg-slate-950 border border-slate-700 text-white rounded-lg px-4 py-2.5 focus:border-blue-500 focus:ring-1 focus:ring-blue-500 outline-none transition-colors"
+              className="w-full bg-slate-950 border border-slate-700 text-white rounded-lg px-4 py-2.5 focus:border-blue-500 outline-none"
               placeholder="Ex: PIX-123456"
             />
           </div>
@@ -84,15 +89,18 @@ export const PaymentModal: React.FC<PaymentModalProps> = ({ user, subscription, 
             <textarea
               value={notes}
               onChange={(e) => setNotes(e.target.value)}
-              className="w-full bg-slate-950 border border-slate-700 text-slate-300 rounded-lg p-3 focus:border-blue-500 focus:outline-none h-24 resize-none text-sm"
+              className="w-full bg-slate-950 border border-slate-700 text-slate-300 rounded-lg p-3 focus:border-blue-500 outline-none h-24 resize-none text-sm"
               placeholder="Detalhes sobre a transação..."
             />
           </div>
+
+          {error && <p className="text-red-400 text-xs">{error}</p>}
 
           <div className="pt-2 flex gap-3">
             <button
               type="button"
               onClick={onClose}
+              disabled={isSubmitting}
               className="flex-1 px-4 py-2.5 border border-slate-700 text-slate-300 rounded-lg hover:bg-slate-800 transition-colors text-sm font-medium"
             >
               Cancelar
@@ -102,22 +110,8 @@ export const PaymentModal: React.FC<PaymentModalProps> = ({ user, subscription, 
               disabled={isSubmitting}
               className="flex-1 px-4 py-2.5 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors shadow-lg shadow-green-900/20 disabled:opacity-70 flex justify-center items-center gap-2 text-sm font-bold"
             >
-              {isSubmitting ? (
-                <>
-                  <span className="animate-spin h-4 w-4 border-2 border-white border-t-transparent rounded-full"></span>
-                  Processando...
-                </>
-              ) : (
-                'Confirmar Pagamento'
-              )}
+              {isSubmitting ? 'Processando...' : 'Confirmar Pagamento'}
             </button>
-          </div>
-          
-          <div className="flex items-start gap-2 bg-blue-900/20 p-3 rounded-lg border border-blue-900/30">
-             <span className="text-blue-400 text-lg">ℹ️</span>
-             <p className="text-xs text-blue-300 leading-relaxed">
-               Esta ação renovará automaticamente a assinatura do cliente por <strong>30 dias</strong> a partir da data de vencimento atual ou de hoje.
-             </p>
           </div>
         </form>
       </div>

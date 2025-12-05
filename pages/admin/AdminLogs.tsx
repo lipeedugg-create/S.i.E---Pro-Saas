@@ -1,18 +1,24 @@
 import React, { useEffect, useState } from 'react';
-import { db } from '../../services/db';
+import { api } from '../../services/api';
 import { RequestLog } from '../../types';
-import { runMonitoringCycle } from '../../services/collectorService';
 
 export const AdminLogs: React.FC = () => {
   const [logs, setLogs] = useState<RequestLog[]>([]);
   const [isRunning, setIsRunning] = useState(false);
   const [totalCost, setTotalCost] = useState(0);
   const [searchTerm, setSearchTerm] = useState('');
+  const [loading, setLoading] = useState(true);
 
-  const fetchLogs = () => {
-    const data = db.getLogs();
-    setLogs(data);
-    setTotalCost(data.reduce((acc, log) => acc + log.cost_usd, 0));
+  const fetchLogs = async () => {
+    try {
+      const data = await api.getLogs();
+      setLogs(data);
+      setTotalCost(data.reduce((acc, log) => acc + Number(log.cost_usd), 0));
+    } catch (error) {
+      console.error("Erro ao buscar logs:", error);
+    } finally {
+      setLoading(false);
+    }
   };
 
   useEffect(() => {
@@ -24,16 +30,21 @@ export const AdminLogs: React.FC = () => {
   const handleTriggerCycle = async () => {
     setIsRunning(true);
     try {
-      await runMonitoringCycle('SECRET_CRON_KEY'); 
-      fetchLogs();
+      // Chama o endpoint real /api/monitoring/trigger
+      await api.triggerCollection('SECRET_CRON_KEY'); 
+      
+      // Aguarda um momento para os logs serem processados pelo backend
+      setTimeout(() => {
+        fetchLogs();
+      }, 2000);
     } catch (e) {
-      alert('Error triggering cycle');
+      alert('Erro ao disparar ciclo de monitoramento. Verifique a chave CRON e o console.');
+      console.error(e);
     } finally {
       setIsRunning(false);
     }
   };
 
-  // Lógica de Filtro dos Logs
   const filteredLogs = logs.filter(log => 
     log.endpoint.toLowerCase().includes(searchTerm.toLowerCase()) ||
     log.user_id.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -45,7 +56,7 @@ export const AdminLogs: React.FC = () => {
       <div className="flex flex-col md:flex-row justify-between items-end mb-8 gap-6 border-b border-slate-800 pb-6">
         <div>
           <h2 className="text-2xl font-bold text-white">Auditoria & Custos IA</h2>
-          <p className="text-slate-500">Rastreamento detalhado de consumo de tokens por requisição.</p>
+          <p className="text-slate-500">Rastreamento de consumo Gemini API (Produção).</p>
         </div>
         <div className="bg-slate-800 border border-slate-700 px-6 py-3 rounded-xl text-right">
           <p className="text-xs text-slate-400 mb-1 uppercase tracking-wider">Custo Total (Período)</p>
@@ -54,7 +65,6 @@ export const AdminLogs: React.FC = () => {
       </div>
 
       <div className="flex flex-col md:flex-row justify-between items-center mb-6 gap-4">
-        {/* Trigger Button */}
         <button 
           onClick={handleTriggerCycle}
           disabled={isRunning}
@@ -67,12 +77,11 @@ export const AdminLogs: React.FC = () => {
           {isRunning ? (
              <span className="flex items-center gap-2">
                <span className="animate-spin h-4 w-4 border-2 border-slate-500 border-t-white rounded-full"></span>
-               Processando Ciclo...
+               Processando API...
              </span>
-          ) : '⚡ Disparar Coleta Manual'}
+          ) : '⚡ Disparar Coleta (Live)'}
         </button>
 
-        {/* Search Bar */}
         <div className="relative w-full md:w-80">
            <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-slate-500">
              <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -81,10 +90,10 @@ export const AdminLogs: React.FC = () => {
            </div>
            <input 
              type="text"
-             placeholder="Filtrar por User ID, Status ou Endpoint..."
+             placeholder="Filtrar logs..."
              value={searchTerm}
              onChange={(e) => setSearchTerm(e.target.value)}
-             className="w-full bg-slate-950 border border-slate-700 text-sm rounded-lg pl-9 pr-3 py-2.5 text-slate-300 focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500 transition-colors placeholder-slate-600"
+             className="w-full bg-slate-950 border border-slate-700 text-sm rounded-lg pl-9 pr-3 py-2.5 text-slate-300 focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500 transition-colors"
            />
         </div>
       </div>
@@ -102,25 +111,27 @@ export const AdminLogs: React.FC = () => {
             </tr>
           </thead>
           <tbody className="divide-y divide-slate-700/50">
-            {filteredLogs.length === 0 ? (
+            {loading ? (
+                <tr><td colSpan={6} className="px-6 py-8 text-center text-slate-500">Carregando auditoria...</td></tr>
+            ) : filteredLogs.length === 0 ? (
                <tr>
-                 <td colSpan={6} className="px-6 py-8 text-center text-slate-500">Nenhum log encontrado. Dispare uma coleta manual.</td>
+                 <td colSpan={6} className="px-6 py-8 text-center text-slate-500">Nenhum log encontrado.</td>
                </tr>
             ) : (
               filteredLogs.map(log => (
                 <tr key={log.id} className="hover:bg-slate-700/20 transition-colors">
                   <td className="px-6 py-3 font-mono text-xs text-slate-500">{new Date(log.timestamp).toLocaleTimeString()}</td>
-                  <td className="px-6 py-3 font-mono text-xs text-blue-400">{log.user_id.substring(0, 8)}...</td>
+                  <td className="px-6 py-3 font-mono text-xs text-blue-400">{log.user_id ? log.user_id.substring(0, 8) : 'SYSTEM'}...</td>
                   <td className="px-6 py-3 font-medium text-slate-300">{log.endpoint}</td>
                   <td className="px-6 py-3 text-center text-xs">
                     <span className="text-slate-400">{log.request_tokens}</span> <span className="text-slate-600 px-1">/</span> <span className="text-blue-400">{log.response_tokens}</span>
                   </td>
                   <td className="px-6 py-3 text-right font-mono font-medium text-emerald-400">
-                    ${log.cost_usd.toFixed(8)}
+                    ${Number(log.cost_usd).toFixed(8)}
                   </td>
                   <td className="px-6 py-3 text-center">
                     <span className={`inline-flex px-2 py-0.5 rounded text-[10px] font-bold border ${
-                      log.status === 'SUCCESS' || log.status === 'SUCESSO'
+                      ['SUCCESS', 'SUCESSO'].includes(log.status)
                       ? 'bg-green-900/20 text-green-400 border-green-900/50' 
                       : 'bg-red-900/20 text-red-400 border-red-900/50'
                     }`}>

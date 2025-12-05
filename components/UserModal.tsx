@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { User } from '../types';
-import { db } from '../services/db';
+import { api } from '../services/api';
 
 interface UserModalProps {
   user?: User | null;
@@ -14,6 +14,7 @@ export const UserModal: React.FC<UserModalProps> = ({ user, onClose, onSuccess }
     email: '',
     role: 'client' as 'admin' | 'client'
   });
+  const [loading, setLoading] = useState(false);
 
   useEffect(() => {
     if (user) {
@@ -25,13 +26,21 @@ export const UserModal: React.FC<UserModalProps> = ({ user, onClose, onSuccess }
     }
   }, [user]);
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    db.upsertUser({
-      id: user?.id,
-      ...formData
-    });
-    onSuccess();
+    setLoading(true);
+    try {
+        await api.upsertUser({
+            id: user?.id, // Se tiver ID é update, senão create
+            ...formData
+        });
+        onSuccess();
+    } catch (error) {
+        alert('Erro ao salvar usuário.');
+        console.error(error);
+    } finally {
+        setLoading(false);
+    }
   };
 
   return (
@@ -52,8 +61,7 @@ export const UserModal: React.FC<UserModalProps> = ({ user, onClose, onSuccess }
               required
               value={formData.name}
               onChange={(e) => setFormData({...formData, name: e.target.value})}
-              className="w-full bg-slate-950 border border-slate-700 text-white rounded-lg p-2.5 focus:border-blue-500 focus:outline-none transition-colors"
-              placeholder="Ex: João da Silva"
+              className="w-full bg-slate-950 border border-slate-700 text-white rounded-lg p-2.5 focus:border-blue-500 outline-none"
             />
           </div>
 
@@ -62,11 +70,10 @@ export const UserModal: React.FC<UserModalProps> = ({ user, onClose, onSuccess }
             <input
               type="email"
               required
-              disabled={!!user} // Email fixo na edição
+              disabled={!!user} 
               value={formData.email}
               onChange={(e) => setFormData({...formData, email: e.target.value})}
-              className={`w-full bg-slate-950 border border-slate-700 text-white rounded-lg p-2.5 focus:border-blue-500 focus:outline-none transition-colors ${user ? 'opacity-50 cursor-not-allowed' : ''}`}
-              placeholder="Ex: joao@empresa.com"
+              className={`w-full bg-slate-950 border border-slate-700 text-white rounded-lg p-2.5 focus:border-blue-500 outline-none ${user ? 'opacity-50 cursor-not-allowed' : ''}`}
             />
           </div>
 
@@ -75,7 +82,7 @@ export const UserModal: React.FC<UserModalProps> = ({ user, onClose, onSuccess }
              <select
                value={formData.role}
                onChange={(e) => setFormData({...formData, role: e.target.value as 'admin'|'client'})}
-               className="w-full bg-slate-950 border border-slate-700 text-white rounded-lg p-2.5 focus:border-blue-500 focus:outline-none"
+               className="w-full bg-slate-950 border border-slate-700 text-white rounded-lg p-2.5 focus:border-blue-500 outline-none"
              >
                <option value="client">Cliente Enterprise</option>
                <option value="admin">Administrador do Sistema</option>
@@ -86,15 +93,17 @@ export const UserModal: React.FC<UserModalProps> = ({ user, onClose, onSuccess }
             <button
               type="button"
               onClick={onClose}
+              disabled={loading}
               className="flex-1 px-4 py-2 border border-slate-700 text-slate-300 rounded-lg hover:bg-slate-800 transition-colors"
             >
               Cancelar
             </button>
             <button
               type="submit"
-              className="flex-1 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors shadow-lg shadow-blue-900/20 font-medium"
+              disabled={loading}
+              className="flex-1 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors shadow-lg font-medium"
             >
-              Salvar Dados
+              {loading ? 'Salvando...' : 'Salvar Dados'}
             </button>
           </div>
         </form>

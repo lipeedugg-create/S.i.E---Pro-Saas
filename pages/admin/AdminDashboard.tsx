@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
-import { db } from '../../services/db';
-import { User, Subscription } from '../../types';
+import { api } from '../../services/api'; // Mudança para API real
+import { User, Subscription, Payment } from '../../types';
 import { PaymentModal } from '../../components/PaymentModal';
 
 interface AdminDashboardProps {
@@ -10,25 +10,44 @@ interface AdminDashboardProps {
 export const AdminDashboard: React.FC<AdminDashboardProps> = ({ currentAdminId }) => {
   const [users, setUsers] = useState<User[]>([]);
   const [subs, setSubs] = useState<Subscription[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState('');
+  
   const [selectedUser, setSelectedUser] = useState<User | null>(null);
   const [stats, setStats] = useState({ users: 0, mrr: 0, paymentsToday: 0 });
-  const [searchTerm, setSearchTerm] = useState(''); // Estado da Busca
-  
-  const refreshData = () => {
-    const u = db.getUsers();
-    const s = db.getSubscriptions();
-    const p = db.getPayments(); 
-    setUsers(u);
-    setSubs(s);
+  const [searchTerm, setSearchTerm] = useState('');
 
-    // Calculate Stats
+  const fetchData = async () => {
+    setLoading(true);
+    setError('');
+    try {
+      // Executa chamadas em paralelo para performance
+      const [usersData, subsData, paymentsData] = await Promise.all([
+        api.getUsers(),
+        api.getSubscriptions(),
+        api.getPayments()
+      ]);
+
+      setUsers(usersData);
+      setSubs(subsData);
+      calculateStats(usersData, subsData, paymentsData);
+    } catch (err) {
+      console.error(err);
+      setError('Erro ao carregar dados do servidor. Verifique a conexão.');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const calculateStats = (u: User[], s: Subscription[], p: Payment[]) => {
     const activeSubs = s.filter(sub => sub.status === 'active');
-    const mrr = activeSubs.reduce((acc, sub) => acc + (sub.plan_id === 'p2' ? 299 : 99), 0);
+    // Preço deve vir do plano, aqui simplificado para logica de frontend
+    const mrr = activeSubs.reduce((acc, sub) => acc + (sub.plan_id.includes('pro') ? 299 : 99), 0);
     
     const today = new Date().toISOString().split('T')[0];
     const todayTotal = p
-      .filter(pay => pay.payment_date === today)
-      .reduce((acc, pay) => acc + pay.amount, 0);
+      .filter(pay => pay.payment_date.startsWith(today))
+      .reduce((acc, pay) => acc + Number(pay.amount), 0);
 
     setStats({
       users: u.length,
@@ -38,38 +57,60 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ currentAdminId }
   };
 
   useEffect(() => {
-    refreshData();
+    fetchData();
   }, []);
 
   const getSubForUser = (userId: string) => subs.find(s => s.user_id === userId);
 
-  // Filtragem (Nome ou Email)
   const filteredUsers = users.filter(u => 
     u.role !== 'admin' && 
     (u.name.toLowerCase().includes(searchTerm.toLowerCase()) || 
      u.email.toLowerCase().includes(searchTerm.toLowerCase()))
   );
 
+  if (loading) {
+    return (
+        <div className="flex h-full items-center justify-center text-slate-400">
+            <div className="flex flex-col items-center gap-4">
+                <span className="w-8 h-8 border-4 border-blue-500 border-t-transparent rounded-full animate-spin"></span>
+                <p>Carregando dados do banco de dados...</p>
+            </div>
+        </div>
+    );
+  }
+
+  if (error) {
+    return (
+        <div className="p-8 text-center">
+            <div className="bg-red-900/20 border border-red-800 text-red-200 p-6 rounded-xl inline-block max-w-md">
+                <h3 className="font-bold text-lg mb-2">Erro de Conexão</h3>
+                <p>{error}</p>
+                <button onClick={fetchData} className="mt-4 bg-red-800 hover:bg-red-700 px-4 py-2 rounded text-sm">Tentar Novamente</button>
+            </div>
+        </div>
+    );
+  }
+
   return (
     <div className="p-8 bg-slate-900 min-h-full text-slate-200">
       <div className="mb-8">
-        <h2 className="text-2xl font-bold text-white">Visão Geral</h2>
-        <p className="text-slate-500">Monitoramento financeiro e operacional.</p>
+        <h2 className="text-2xl font-bold text-white">Visão Geral (Produção)</h2>
+        <p className="text-slate-500">Dados em tempo real do banco PostgreSQL.</p>
       </div>
 
       {/* KPI Cards */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
-        <div className="bg-slate-800 border border-slate-700 rounded-xl p-6 shadow-lg hover:border-slate-600 transition-colors">
+        <div className="bg-slate-800 border border-slate-700 rounded-xl p-6 shadow-lg">
           <p className="text-slate-400 text-sm mb-1 uppercase font-bold tracking-wider">Base de Usuários</p>
           <p className="text-3xl font-bold text-white">{stats.users.toLocaleString()}</p>
         </div>
 
-        <div className="bg-slate-800 border border-slate-700 rounded-xl p-6 shadow-lg hover:border-slate-600 transition-colors">
+        <div className="bg-slate-800 border border-slate-700 rounded-xl p-6 shadow-lg">
           <p className="text-slate-400 text-sm mb-1 uppercase font-bold tracking-wider">Receita Mensal (MRR)</p>
           <p className="text-3xl font-bold text-blue-400">R$ {stats.mrr.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</p>
         </div>
 
-        <div className="bg-slate-800 border border-slate-700 rounded-xl p-6 shadow-lg hover:border-slate-600 transition-colors">
+        <div className="bg-slate-800 border border-slate-700 rounded-xl p-6 shadow-lg">
           <p className="text-slate-400 text-sm mb-1 uppercase font-bold tracking-wider">Entradas Hoje</p>
           <p className="text-3xl font-bold text-green-500">R$ {stats.paymentsToday.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</p>
         </div>
@@ -80,21 +121,13 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ currentAdminId }
           <span>👥</span> Clientes Recentes
         </h3>
         
-        {/* Campo de Busca */}
-        <div className="relative w-full md:w-64">
-           <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-slate-500">
-             <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
-             </svg>
-           </div>
-           <input 
+        <input 
              type="text"
              placeholder="Filtrar clientes..."
              value={searchTerm}
              onChange={(e) => setSearchTerm(e.target.value)}
-             className="w-full bg-slate-950 border border-slate-700 text-sm rounded-lg pl-9 pr-3 py-2 text-slate-300 focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500 transition-colors"
-           />
-        </div>
+             className="w-full md:w-64 bg-slate-950 border border-slate-700 text-sm rounded-lg px-3 py-2 text-slate-300 focus:outline-none focus:border-blue-500 transition-colors"
+        />
       </div>
 
       <div className="bg-slate-800 rounded-xl border border-slate-700 overflow-hidden shadow-xl">
@@ -109,12 +142,12 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ currentAdminId }
           </thead>
           <tbody className="divide-y divide-slate-700">
             {filteredUsers.length === 0 ? (
-               <tr><td colSpan={4} className="px-6 py-8 text-center text-slate-500">Nenhum cliente encontrado com este filtro.</td></tr>
+               <tr><td colSpan={4} className="px-6 py-8 text-center text-slate-500">Nenhum cliente encontrado.</td></tr>
             ) : (
               filteredUsers.map(user => {
                 const sub = getSubForUser(user.id);
-                const isExpired = sub?.status === 'expired';
-                const planName = sub?.plan_id === 'p2' ? 'Enterprise Pro' : 'Básico';
+                // Lógica simples para identificar se está expirado
+                const isExpired = sub?.status === 'expired' || (sub?.end_date ? new Date(sub.end_date) < new Date() : false);
                 
                 return (
                   <tr key={user.id} className="hover:bg-slate-750 transition-colors">
@@ -125,10 +158,10 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ currentAdminId }
                     <td className="px-6 py-4">
                       {sub ? (
                         <span className="bg-slate-900 border border-slate-600 text-slate-300 text-[10px] px-2 py-1 rounded uppercase font-bold tracking-wider">
-                          {planName}
+                          {sub.plan_id.substring(0, 8)}
                         </span>
                       ) : (
-                        <span className="text-slate-600 italic">Inativo</span>
+                        <span className="text-slate-600 italic">Sem Plano</span>
                       )}
                     </td>
                     <td className="px-6 py-4">
@@ -136,9 +169,9 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ currentAdminId }
                         <div>
                            <div className={`flex items-center gap-1.5 font-bold text-xs uppercase ${isExpired ? 'text-red-400' : 'text-green-400'}`}>
                              <div className={`w-1.5 h-1.5 rounded-full ${isExpired ? 'bg-red-500' : 'bg-green-500'}`}></div>
-                             {sub.status === 'active' ? 'Ativo' : 'Expirado'}
+                             {isExpired ? 'Expirado' : 'Ativo'}
                            </div>
-                           <div className="text-slate-500 text-xs mt-0.5">Renova em: {sub.end_date}</div>
+                           <div className="text-slate-500 text-xs mt-0.5">Renova: {new Date(sub.end_date).toLocaleDateString()}</div>
                         </div>
                       ) : '-'}
                     </td>
@@ -148,7 +181,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ currentAdminId }
                           onClick={() => setSelectedUser(user)}
                           className="bg-green-600/10 hover:bg-green-600/20 text-green-400 border border-green-600/50 text-xs font-bold py-1.5 px-3 rounded transition-all ml-auto flex items-center gap-1"
                         >
-                          $ Registrar Pagamento
+                          $ Renovar
                         </button>
                       )}
                     </td>
@@ -168,7 +201,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ currentAdminId }
           onClose={() => setSelectedUser(null)}
           onSuccess={() => {
             setSelectedUser(null);
-            refreshData();
+            fetchData(); // Recarrega dados reais após pagamento
           }}
         />
       )}

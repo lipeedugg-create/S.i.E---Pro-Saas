@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { db } from '../../services/db';
+import { api } from '../../services/api';
 import { User, MonitoringConfig } from '../../types';
 
 interface ClientConfigProps {
@@ -18,17 +18,31 @@ export const ClientConfig: React.FC<ClientConfigProps> = ({ user }) => {
   const [keywordInput, setKeywordInput] = useState('');
   const [urlInput, setUrlInput] = useState('');
   const [saved, setSaved] = useState(false);
+  const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    const existing = db.getConfig(user.id);
-    if (existing) setConfig(existing);
+    const loadConfig = async () => {
+        try {
+            const existing = await api.getConfig(user.id);
+            if (existing) setConfig(existing);
+        } catch (e) {
+            console.error(e);
+        } finally {
+            setLoading(false);
+        }
+    };
+    loadConfig();
   }, [user.id]);
 
-  const handleSave = (e: React.FormEvent) => {
+  const handleSave = async (e: React.FormEvent) => {
     e.preventDefault();
-    db.upsertConfig(config);
-    setSaved(true);
-    setTimeout(() => setSaved(false), 2000);
+    try {
+        await api.upsertConfig(config);
+        setSaved(true);
+        setTimeout(() => setSaved(false), 2000);
+    } catch (e) {
+        alert('Erro ao salvar configuração.');
+    }
   };
 
   const addKeyword = () => {
@@ -44,6 +58,8 @@ export const ClientConfig: React.FC<ClientConfigProps> = ({ user }) => {
       setUrlInput('');
     }
   };
+
+  if (loading) return <div className="p-8 text-center text-slate-400">Carregando configurações...</div>;
 
   return (
     <div className="p-8 max-w-4xl mx-auto">
@@ -119,24 +135,6 @@ export const ClientConfig: React.FC<ClientConfigProps> = ({ user }) => {
               </li>
             ))}
           </ul>
-        </div>
-
-        {/* Frequency */}
-        <div>
-           <label className="block text-sm font-bold text-slate-300 uppercase mb-3">Frequência de Análise</label>
-           <div className="relative">
-             <select 
-              value={config.frequency}
-              onChange={(e) => setConfig(c => ({...c, frequency: e.target.value as 'daily'|'hourly'}))}
-              className="w-full bg-slate-950 border border-slate-700 rounded-lg px-4 py-3 text-white outline-none appearance-none cursor-pointer hover:border-slate-600 transition-colors"
-             >
-               <option value="hourly">Horária (Plano Enterprise)</option>
-               <option value="daily">Diária (Padrão)</option>
-             </select>
-             <div className="absolute inset-y-0 right-0 flex items-center px-4 pointer-events-none text-slate-500">
-                <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" /></svg>
-             </div>
-           </div>
         </div>
 
         <div className="pt-6 border-t border-slate-700 flex items-center gap-4">
