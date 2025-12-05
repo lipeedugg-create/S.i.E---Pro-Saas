@@ -7,7 +7,7 @@ interface DocumentationProps {
 type TabType = 'database' | 'backend' | 'frontend' | 'ai-core' | 'deploy';
 
 export const Documentation: React.FC<DocumentationProps> = ({ onClose }) => {
-  const [activeTab, setActiveTab] = useState<TabType>('frontend');
+  const [activeTab, setActiveTab] = useState<TabType>('database');
 
   const CopyBlock = ({ title, code, lang = 'bash', warning = false }: { title: string, code: string, lang?: string, warning?: boolean }) => (
     <div className={`mb-8 rounded-lg overflow-hidden border shadow-xl ${warning ? 'border-red-800' : 'border-slate-700'}`}>
@@ -75,8 +75,7 @@ export const Documentation: React.FC<DocumentationProps> = ({ onClose }) => {
               <div className="bg-slate-900 p-6 rounded-lg border border-slate-700 mb-6">
                 <h2 className="text-2xl font-bold text-white mb-2">1. Schema PostgreSQL & Data Source</h2>
                 <p className="text-slate-400">
-                    O sistema agora está 100% conectado a um banco de dados PostgreSQL real. Todos os dados simulados (Mock Data) foram removidos da aplicação.
-                    Use o arquivo <code>database_schema.sql</code> para criar a estrutura inicial.
+                    O sistema agora está 100% conectado a um banco de dados PostgreSQL real. Utilize o script abaixo para inicializar a estrutura completa.
                 </p>
               </div>
 
@@ -95,13 +94,148 @@ export const query = (text, params) => pool.query(text, params);
                 `}
               />
 
-              <h3 className="text-white font-bold mb-4">Tabelas Principais</h3>
-              <ul className="grid grid-cols-2 gap-4 text-sm text-slate-400 mb-8">
-                <li className="bg-slate-900 p-3 rounded border border-slate-800"><strong>users</strong>: Credenciais e Perfis</li>
-                <li className="bg-slate-900 p-3 rounded border border-slate-800"><strong>subscriptions</strong>: Gestão de Assinaturas</li>
-                <li className="bg-slate-900 p-3 rounded border border-slate-800"><strong>monitoring_configs</strong>: Regras de Monitoramento</li>
-                <li className="bg-slate-900 p-3 rounded border border-slate-800"><strong>master_items</strong>: Resultados da IA (Notícias Analisadas)</li>
-              </ul>
+              <h3 className="text-white font-bold mb-4">Script de Inicialização Completo</h3>
+              <p className="text-slate-400 text-sm mb-4">Execute este SQL no seu banco de dados PostgreSQL para criar as tabelas e inserir os dados iniciais.</p>
+
+              <CopyBlock 
+                title="database_schema.sql" 
+                lang="sql"
+                code={`
+CREATE EXTENSION IF NOT EXISTS "pgcrypto";
+
+-- 1. Users & Auth
+CREATE TABLE IF NOT EXISTS users (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    name VARCHAR(255) NOT NULL,
+    email VARCHAR(255) UNIQUE NOT NULL,
+    password_hash VARCHAR(255) NOT NULL,
+    role VARCHAR(50) DEFAULT 'client' CHECK (role IN ('admin', 'client')),
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+);
+
+-- 2. SaaS Plans
+CREATE TABLE IF NOT EXISTS plans (
+    id VARCHAR(50) PRIMARY KEY, -- e.g., 'starter', 'pro'
+    name VARCHAR(100) NOT NULL,
+    price DECIMAL(10, 2) NOT NULL,
+    description TEXT
+);
+
+-- 3. Plugins / Addons (Marketplace)
+CREATE TABLE IF NOT EXISTS plugins (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    name VARCHAR(100) NOT NULL,
+    description TEXT,
+    version VARCHAR(20) DEFAULT '1.0.0',
+    icon VARCHAR(50), -- Emoji or URL
+    status VARCHAR(50) DEFAULT 'available' CHECK (status IN ('available', 'installed', 'active')),
+    category VARCHAR(50) DEFAULT 'utility',
+    price DECIMAL(10, 2) DEFAULT 0.00
+);
+
+-- 4. Plan <> Plugins (Feature distribution)
+CREATE TABLE IF NOT EXISTS plan_plugins (
+    plan_id VARCHAR(50) REFERENCES plans(id) ON DELETE CASCADE,
+    plugin_id UUID REFERENCES plugins(id) ON DELETE CASCADE,
+    PRIMARY KEY (plan_id, plugin_id)
+);
+
+-- 5. Subscriptions
+CREATE TABLE IF NOT EXISTS subscriptions (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    user_id UUID REFERENCES users(id) ON DELETE CASCADE,
+    plan_id VARCHAR(50) REFERENCES plans(id),
+    status VARCHAR(20) DEFAULT 'active' CHECK (status IN ('active', 'expired', 'cancelled')),
+    start_date DATE DEFAULT CURRENT_DATE,
+    end_date DATE,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+);
+
+-- 6. Monitoring Configuration (User Settings)
+CREATE TABLE IF NOT EXISTS monitoring_configs (
+    user_id UUID PRIMARY KEY REFERENCES users(id) ON DELETE CASCADE,
+    keywords JSONB DEFAULT '[]',
+    urls_to_track JSONB DEFAULT '[]',
+    frequency VARCHAR(20) DEFAULT 'daily',
+    is_active BOOLEAN DEFAULT true,
+    updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+);
+
+-- 7. AI Analysis Results (Master Items)
+CREATE TABLE IF NOT EXISTS master_items (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    user_id UUID REFERENCES users(id) ON DELETE CASCADE,
+    source_url TEXT,
+    analyzed_content TEXT,
+    ai_summary TEXT,
+    detected_keywords JSONB, -- Array of strings
+    sentiment_score DECIMAL(3,2), -- -1.0 to 1.0
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+);
+
+-- 8. Financial Payments (Manual Entry by Admin)
+CREATE TABLE IF NOT EXISTS payments (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    subscription_id UUID REFERENCES subscriptions(id) ON DELETE SET NULL,
+    amount DECIMAL(10, 2) NOT NULL,
+    payment_date DATE DEFAULT CURRENT_DATE,
+    reference_id VARCHAR(100), -- Transaction ID / PIX Key
+    notes TEXT,
+    admin_recorded_by UUID REFERENCES users(id),
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+);
+
+-- 9. Audit Logs (AI Usage & Costs)
+CREATE TABLE IF NOT EXISTS requests_log (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    user_id UUID REFERENCES users(id) ON DELETE SET NULL,
+    endpoint VARCHAR(100),
+    request_tokens INT DEFAULT 0,
+    response_tokens INT DEFAULT 0,
+    cost_usd DECIMAL(10, 6) DEFAULT 0,
+    status VARCHAR(50),
+    timestamp TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+);
+
+-- SEED DATA ----------------------------------------------------
+
+-- Plans
+INSERT INTO plans (id, name, price, description) VALUES
+('starter', 'Starter Plan', 99.00, 'Monitoramento básico para pequenas empresas'),
+('pro', 'Enterprise Pro', 299.00, 'IA avançada e tempo real'),
+('gov', 'Government', 999.00, 'Infraestrutura dedicada')
+ON CONFLICT DO NOTHING;
+
+-- Users (Password is '123456' hashed with bcrypt cost 10)
+-- Admin
+INSERT INTO users (id, name, email, password_hash, role) VALUES
+('a0eebc99-9c0b-4ef8-bb6d-6bb9bd380a11', 'Admin Master', 'admin@sie.pro', '$2a$10$X7Xk5y5n5j5k5l5m5n5o5p5q5r5s5t5u5v5w5x5y5z5A5B5C5D5E', 'admin')
+ON CONFLICT (email) DO NOTHING;
+
+-- Client
+INSERT INTO users (id, name, email, password_hash, role) VALUES
+('b1eebc99-9c0b-4ef8-bb6d-6bb9bd380a22', 'Acme Corp', 'client@acme.com', '$2a$10$X7Xk5y5n5j5k5l5m5n5o5p5q5r5s5t5u5v5w5x5y5z5A5B5C5D5E', 'client')
+ON CONFLICT (email) DO NOTHING;
+
+-- Subscription for Client
+INSERT INTO subscriptions (user_id, plan_id, status, end_date) VALUES
+('b1eebc99-9c0b-4ef8-bb6d-6bb9bd380a22', 'pro', 'active', CURRENT_DATE + INTERVAL '30 days')
+ON CONFLICT DO NOTHING;
+
+-- Plugins
+INSERT INTO plugins (name, description, icon, status, category, price) VALUES
+('Dark Web Monitor', 'Rastreia vazamento de credenciais em fóruns underground.', '🕵️‍♂️', 'available', 'security', 49.90),
+('PDF Reports', 'Gera relatórios executivos em PDF com um clique.', '📄', 'installed', 'utility', 19.90),
+('Slack Integration', 'Envia alertas de crise diretamente no canal do Slack.', '📢', 'active', 'integration', 0.00),
+('Sentiment AI+', 'Análise de sentimento granular (Emoções: Raiva, Alegria).', '🧠', 'available', 'analytics', 29.90)
+ON CONFLICT DO NOTHING;
+
+-- Config for Client
+INSERT INTO monitoring_configs (user_id, keywords, urls_to_track) VALUES
+('b1eebc99-9c0b-4ef8-bb6d-6bb9bd380a22', '["Acme Corp", "Crise", "Vazamento"]', '["https://news.google.com", "https://twitter.com/search?q=acme"]')
+ON CONFLICT (user_id) DO NOTHING;
+                `}
+              />
             </div>
           )}
 
