@@ -51,7 +51,7 @@ export default function App() {
       case 'admin-plugins': // Nova Rota
         return <AdminPlugins />;
       case 'admin-users':
-        return <AdminUsers />;
+        return <AdminUsers onLogin={handleLogin} />;
       case 'client-dashboard':
         return <ClientDashboard user={currentUser} />;
       case 'client-config':

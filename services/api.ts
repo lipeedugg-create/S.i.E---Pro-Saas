@@ -38,6 +38,14 @@ export const api = {
     return handleResponse(res);
   },
 
+  impersonate: async (userId: string): Promise<{ user: User, token: string }> => {
+    const res = await fetch(`${API_URL}/admin/users/${userId}/impersonate`, {
+      method: 'POST',
+      headers: getHeaders()
+    });
+    return handleResponse(res);
+  },
+
   // --- USERS & ADMIN ---
   getUsers: async (): Promise<User[]> => {
     const res = await fetch(`${API_URL}/admin/users`, { headers: getHeaders() });

@@ -1,8 +1,10 @@
 import express from 'express';
+import jwt from 'jsonwebtoken';
 import { query } from '../config/db.js';
 import { authenticate, authorizeAdmin } from '../middleware/auth.js';
 
 const router = express.Router();
+const JWT_SECRET = process.env.JWT_SECRET || 'sie-secret-key-change-in-prod';
 
 router.use(authenticate);
 router.use(authorizeAdmin);
@@ -27,6 +29,51 @@ router.post('/users', async (req, res) => {
       [name, email, role, defaultHash]
     );
     res.json(result.rows[0]);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+router.put('/users/:id', async (req, res) => {
+  const { id } = req.params;
+  const { name, email, role } = req.body;
+  try {
+    const result = await query(
+      'UPDATE users SET name = $1, email = $2, role = $3 WHERE id = $4 RETURNING *',
+      [name, email, role, id]
+    );
+    res.json(result.rows[0]);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// Impersonate User (Login As)
+router.post('/users/:id/impersonate', async (req, res) => {
+  const { id } = req.params;
+  try {
+    const result = await query('SELECT * FROM users WHERE id = $1', [id]);
+    if (result.rows.length === 0) {
+      return res.status(404).json({ message: 'Usuário não encontrado' });
+    }
+    const user = result.rows[0];
+
+    // Generate Token for this user
+    const token = jwt.sign(
+      { id: user.id, role: user.role, name: user.name },
+      JWT_SECRET,
+      { expiresIn: '1h' }
+    );
+
+    res.json({
+      token,
+      user: {
+        id: user.id,
+        name: user.name,
+        email: user.email,
+        role: user.role
+      }
+    });
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
@@ -114,6 +161,23 @@ router.patch('/plugins/:id/status', async (req, res) => {
         await query('UPDATE plugins SET status = $1 WHERE id = $2', [status, id]);
         res.json({ success: true });
     } catch (err) {
+        res.status(500).json({ error: err.message });
+    }
+});
+
+router.post('/plugins/:id/toggle-plan', async (req, res) => {
+    const { id } = req.params;
+    const { plan_id } = req.body;
+    
+    try {
+        const check = await query('SELECT * FROM plan_plugins WHERE plan_id = $1 AND plugin_id = $2', [plan_id, id]);
+        if (check.rows.length > 0) {
+            await query('DELETE FROM plan_plugins WHERE plan_id = $1 AND plugin_id = $2', [plan_id, id]);
+        } else {
+            await query('INSERT INTO plan_plugins (plan_id, plugin_id) VALUES ($1, $2)', [plan_id, id]);
+        }
+        res.json({ success: true });
+    } catch(err) {
         res.status(500).json({ error: err.message });
     }
 });
