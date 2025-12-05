@@ -1,0 +1,5 @@
+{
+  "name": "S.I.E. PRO (v2.0) Simulation",
+  "description": "A full-stack simulation of the Strategic Monitoring SaaS, demonstrating the Admin Control Panel, Financial Management, Audit Logs, and Core AI Monitoring Logic within a React environment.",
+  "requestFramePermissions": []
+}

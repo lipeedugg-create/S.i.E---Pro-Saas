@@ -1,0 +1,80 @@
+// Matching the User table
+export interface User {
+  id: string;
+  email: string;
+  role: 'admin' | 'client';
+  name: string;
+}
+
+// Matching the Subscriptions table
+export interface Subscription {
+  id: string;
+  user_id: string;
+  plan_id: string;
+  status: 'active' | 'expired' | 'cancelled';
+  start_date: string;
+  end_date: string;
+}
+
+// Matching the Plans table
+export interface Plan {
+  id: string;
+  name: string;
+  price: number;
+}
+
+// Plugins / Addons System
+export interface Plugin {
+  id: string;
+  name: string;
+  description: string;
+  version: string;
+  icon: string; // Emoji or URL
+  status: 'available' | 'installed' | 'active'; // available=store, installed=library, active=running
+  category: 'analytics' | 'security' | 'integration' | 'utility';
+  price: number; // Custo mensal sugerido para repasse
+  allowed_plans: string[]; // IDs dos planos que têm acesso a este plugin (NOVO)
+}
+
+// Tabela 8: Payments (Gestão Financeira Manual)
+export interface Payment {
+  id: string;
+  subscription_id: string;
+  amount: number;
+  payment_date: string;
+  reference_id: string;
+  admin_recorded_by: string; // user_id
+  notes: string;
+}
+
+// Tabela 9: Requests Log (Controle de Consumo/Custo)
+export interface RequestLog {
+  id: string;
+  user_id: string;
+  endpoint: string;
+  request_tokens: number;
+  response_tokens: number;
+  cost_usd: number;
+  timestamp: string;
+  status: string;
+}
+
+// Master Items (Results of Monitoring)
+export interface MasterItem {
+  id: string;
+  user_id: string;
+  source_url: string;
+  analyzed_content: string;
+  ai_summary: string;
+  detected_keywords: string[];
+  created_at: string;
+}
+
+// User Monitoring Config
+export interface MonitoringConfig {
+  user_id: string;
+  keywords: string[];
+  urls_to_track: string[];
+  frequency: 'daily' | 'hourly';
+  is_active: boolean;
+}
