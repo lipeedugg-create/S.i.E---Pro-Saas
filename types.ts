@@ -88,6 +88,7 @@ export interface MonitoringConfig {
   urls_to_track: string[];
   frequency: 'daily' | 'hourly';
   is_active: boolean;
+  last_run_at?: string; // NOVO: Data da última execução
 }
 
 // --- NEW: Public Administration Search Types ---

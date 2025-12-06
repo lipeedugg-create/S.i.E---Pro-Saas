@@ -99,22 +99,35 @@ function mockAnalysis(text) {
     };
 }
 
-export const runMonitoringCycle = async () => {
-    console.log("Starting Monitoring Cycle...");
+/**
+ * Executa o ciclo de monitoramento.
+ * @param {string|null} specificUserId - Se fornecido, roda apenas para este usuário.
+ */
+export const runMonitoringCycle = async (specificUserId = null) => {
+    console.log(`Starting Monitoring Cycle... ${specificUserId ? `(Target User: ${specificUserId})` : '(Global)'}`);
     
-    // 1. Buscar configs ativas de usuários com assinatura válida
-    const configs = await query(`
+    // 1. Construção dinâmica da query
+    let sql = `
         SELECT c.* 
         FROM monitoring_configs c
         JOIN subscriptions s ON c.user_id = s.user_id
         WHERE c.is_active = true AND s.status = 'active'
-    `);
+    `;
+    
+    const params = [];
+    if (specificUserId) {
+        sql += ` AND c.user_id = $1`;
+        params.push(specificUserId);
+    }
 
+    const configs = await query(sql, params);
     let processedCount = 0;
 
     for (const config of configs.rows) {
         // Se não tiver URLs, pula
         if (!config.urls_to_track || config.urls_to_track.length === 0) continue;
+
+        let userHasUpdates = false;
 
         for (const url of config.urls_to_track) {
             try {
@@ -155,6 +168,7 @@ export const runMonitoringCycle = async () => {
                     [config.user_id, 'GEMINI_CRAWLER', metrics.tokens_in, metrics.tokens_out, metrics.cost]
                 );
                 
+                userHasUpdates = true;
                 processedCount++;
 
             } catch (err) {
@@ -166,6 +180,12 @@ export const runMonitoringCycle = async () => {
                 );
             }
         }
+
+        // 5. Atualiza o Timestamp da última execução para o usuário
+        if (userHasUpdates || specificUserId) { // Se for execução manual, atualiza mesmo se falhar URLs
+            await query('UPDATE monitoring_configs SET last_run_at = CURRENT_TIMESTAMP WHERE user_id = $1', [config.user_id]);
+        }
     }
     console.log(`Cycle finished. Processed ${processedCount} items.`);
+    return processedCount;
 };

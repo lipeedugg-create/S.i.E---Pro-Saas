@@ -216,6 +216,14 @@ export const api = {
     });
   },
 
+  runMonitoringNow: async (): Promise<{ message: string, count: number }> => {
+    const res = await fetch(`${API_URL}/client/monitoring/run`, {
+      method: 'POST',
+      headers: getHeaders()
+    });
+    return handleResponse(res);
+  },
+
   // --- TOOLS (PLUGINS) ---
   searchPublicAdmin: async (city: string): Promise<CityAdminData> => {
     const res = await fetch(`${API_URL}/client/tools/public-admin-search`, {

@@ -2,6 +2,7 @@ import express from 'express';
 import { query } from '../config/db.js';
 import { authenticate } from '../middleware/auth.js';
 import { searchCityAdmin } from '../services/aiSearchService.js';
+import { runMonitoringCycle } from '../services/collectorService.js'; // Importando serviço real
 
 const router = express.Router();
 router.use(authenticate);
@@ -22,6 +23,8 @@ router.put('/config', async (req, res) => {
   
   try {
     // Upsert (Insert or Update)
+    // Se o banco não tiver last_run_at, ele ignorará se a coluna não existir, mas em prod devemos ter rodado migration.
+    // Usamos ON CONFLICT para atualizar.
     const result = await query(
       `INSERT INTO monitoring_configs (user_id, keywords, urls_to_track, frequency, is_active)
        VALUES ($1, $2, $3, $4, $5)
@@ -34,6 +37,18 @@ router.put('/config', async (req, res) => {
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
+});
+
+// Endpoint para disparar monitoramento manualmente (Force Run)
+router.post('/monitoring/run', async (req, res) => {
+    try {
+        // Roda o ciclo apenas para o usuário logado
+        const processedCount = await runMonitoringCycle(req.user.id);
+        res.json({ message: "Varredura iniciada com sucesso.", count: processedCount });
+    } catch (err) {
+        console.error(err);
+        res.status(500).json({ error: "Erro ao executar varredura manual." });
+    }
 });
 
 // Itens Monitorados (Resultados)
