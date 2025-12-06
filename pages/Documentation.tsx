@@ -37,7 +37,7 @@ export const Documentation: React.FC<DocumentationProps> = ({ onClose }) => {
            <div className="w-8 h-8 bg-blue-600 rounded flex items-center justify-center font-bold text-white text-xs">DOC</div>
            <div>
              <h1 className="text-white font-bold text-sm leading-tight">S.I.E. PRO - Documentação Técnica</h1>
-             <p className="text-[10px] text-slate-500 font-mono">v5.0 - Autonomous Agents & Architecture Refactor</p>
+             <p className="text-[10px] text-slate-500 font-mono">v5.1 - Gemini 2.5 & Impersonation Update</p>
            </div>
         </div>
         <div className="flex items-center gap-4">
@@ -73,13 +73,13 @@ export const Documentation: React.FC<DocumentationProps> = ({ onClose }) => {
           {activeTab === 'database' && (
             <div className="animate-fade-in space-y-6">
               <div className="bg-slate-900 p-6 rounded-lg border border-slate-700 mb-6">
-                <h2 className="text-2xl font-bold text-white mb-2">💾 Database Schema (v5.0 Final)</h2>
+                <h2 className="text-2xl font-bold text-white mb-2">💾 Database Schema (v5.1 Live)</h2>
                 <p className="text-slate-400 mb-4">
-                    Esquema completo utilizado pelo <code>initDb.js</code> para inicialização automática.
+                    Esquema completo PostgreSQL utilizado pelo <code>initDb.js</code>. O sistema gerencia a criação e migração destas tabelas automaticamente na inicialização.
                 </p>
                 <div className="flex items-center gap-2 text-xs text-blue-400 bg-blue-900/20 p-3 rounded border border-blue-900/50">
                     <span>ℹ️</span>
-                    <strong>Nota:</strong> O sistema cria estas tabelas automaticamente ao iniciar se elas não existirem.
+                    <strong>Nota:</strong> Inclui suporte a UUIDs via <code>pgcrypto</code> e rastreamento de custos de IA.
                 </div>
               </div>
 
@@ -196,14 +196,14 @@ CREATE TABLE IF NOT EXISTS requests_log (
           {activeTab === 'ai-core' && (
              <div className="animate-fade-in space-y-6">
                 <div className="bg-slate-900 p-6 rounded-lg border border-slate-700">
-                    <h2 className="text-2xl font-bold text-white mb-2">🧠 Gemini 2.5 Integration Strategy</h2>
+                    <h2 className="text-2xl font-bold text-white mb-2">🧠 Integração Gemini 2.5 Flash</h2>
                     <p className="text-slate-400">
-                        O núcleo de inteligência foi atualizado para utilizar o modelo <code>gemini-2.5-flash</code> para máxima performance e custo reduzido.
+                        O núcleo de inteligência foi atualizado para utilizar o modelo <code>gemini-2.5-flash</code>, oferecendo menor latência e maior precisão para tarefas de RAG (Retrieval-Augmented Generation) e análise de sentimento.
                     </p>
                 </div>
                 
                 <CopyBlock 
-                    title="Collector Service (Crawler + Analysis)"
+                    title="Análise de Sentimento (JSON Mode)"
                     lang="javascript"
                     code={`
 // Análise de Sentimento com output JSON estrito
@@ -227,46 +227,63 @@ const response = await ai.models.generateContent({
 });
                     `}
                 />
+
+                <CopyBlock 
+                    title="Raio-X Administrativo (Google Search Grounding)"
+                    lang="javascript"
+                    code={`
+// Exemplo de uso de ferramentas de busca com Gemini
+const response = await ai.models.generateContent({
+    model: 'gemini-2.5-flash',
+    contents: "Pesquise quem é o prefeito atual de Curitiba...",
+    config: {
+        tools: [{ googleSearch: {} }], // Grounding com dados reais
+        temperature: 0.1
+    }
+});
+                    `}
+                />
              </div>
           )}
 
           {/* TAB: BACKEND */}
           {activeTab === 'backend' && (
              <div className="animate-fade-in space-y-6">
-                <h2 className="text-2xl font-bold text-white mb-4">Backend Architecture (v5.0)</h2>
+                <h2 className="text-2xl font-bold text-white mb-4">Arquitetura Backend Node.js</h2>
                 
                 <div className="bg-slate-800 p-5 rounded-lg border border-slate-700 mb-6">
-                    <h3 className="text-white font-bold mb-4">⚙️ Autonomous Services</h3>
-                    <p className="text-slate-400 text-sm mb-4">
-                        Refatoração para desacoplar a lógica de execução da API principal.
-                    </p>
+                    <h3 className="text-white font-bold mb-4">⚙️ Serviços Autônomos</h3>
                     
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                         <div className="bg-slate-900 p-4 rounded border border-slate-700">
                             <h4 className="font-bold text-emerald-400 text-sm mb-2">Scheduler.js</h4>
                             <p className="text-xs text-slate-400">
-                                Executa um loop interno (setInterval) a cada 60s. Verifica <code>monitoring_configs</code> para encontrar tarefas pendentes (Hourly/Daily) e dispara o <code>collectorService</code> sem intervenção humana.
+                                Loop de verificação (60s tick) que dispara o <code>collectorService</code> para tarefas agendadas (Hourly/Daily) sem intervenção humana.
                             </p>
                         </div>
                         <div className="bg-slate-900 p-4 rounded border border-slate-700">
                             <h4 className="font-bold text-blue-400 text-sm mb-2">LogService.js</h4>
                             <p className="text-xs text-slate-400">
-                                Módulo centralizado para auditoria. Garante que qualquer consumo de tokens (Crawler, Busca Pública, Plugins) seja registrado na tabela <code>requests_log</code> para faturamento.
+                                Auditoria centralizada. Registra todo consumo de tokens (Input/Output) na tabela <code>requests_log</code> para cálculo de custos.
                             </p>
                         </div>
                     </div>
                 </div>
 
                 <div className="bg-slate-800 p-5 rounded-lg border border-slate-700">
-                    <h3 className="text-white font-bold mb-4">Security Layer</h3>
+                    <h3 className="text-white font-bold mb-4">Camada de Segurança (Security Layer)</h3>
                     <div className="space-y-4">
                         <div className="flex gap-3 items-start">
-                            <span className="bg-purple-900/30 text-purple-400 px-2 py-1 rounded text-xs font-mono border border-purple-900/50">auth.js (Middleware)</span>
-                            <p className="text-sm text-slate-400">Verificação JWT stateless. Bloqueia automaticamente usuários com status <code>suspended</code> ou <code>inactive</code> mesmo com token válido.</p>
+                            <span className="bg-purple-900/30 text-purple-400 px-2 py-1 rounded text-xs font-mono border border-purple-900/50">Centralized Auth</span>
+                            <p className="text-sm text-slate-400">
+                                <code>config/db.js</code> atua como Fonte Única da Verdade para <code>JWT_SECRET</code>, prevenindo falhas de validação de sessão em produção.
+                            </p>
                         </div>
                         <div className="flex gap-3 items-start">
-                             <span className="bg-orange-900/30 text-orange-400 px-2 py-1 rounded text-xs font-mono border border-orange-900/50">Impersonation</span>
-                             <p className="text-sm text-slate-400">Rota administrativa para gerar tokens temporários de acesso a contas de clientes para suporte (sem troca de senha).</p>
+                             <span className="bg-orange-900/30 text-orange-400 px-2 py-1 rounded text-xs font-mono border border-orange-900/50">Impersonation API</span>
+                             <p className="text-sm text-slate-400">
+                                 Rota <code>POST /users/:id/impersonate</code> gera tokens temporários de curto prazo (1h) para suporte administrativo.
+                             </p>
                         </div>
                     </div>
                 </div>
@@ -276,31 +293,39 @@ const response = await ai.models.generateContent({
           {/* TAB: FRONTEND */}
           {activeTab === 'frontend' && (
              <div className="animate-fade-in space-y-6">
-                <h2 className="text-2xl font-bold text-white mb-4">Frontend Architecture</h2>
+                <h2 className="text-2xl font-bold text-white mb-4">Frontend React 19</h2>
                  
                  <div className="bg-slate-800 p-5 rounded-lg border border-slate-700 mb-6">
-                    <h3 className="text-white font-bold mb-3">🔄 Session Hydration & Persistence</h3>
+                    <h3 className="text-white font-bold mb-3">🔄 Persistência de Sessão</h3>
                     <p className="text-sm text-slate-400 mb-4">
-                        Implementação de robustez para manter o usuário logado após refresh (F5).
+                        Lógica aprimorada de hidratação de sessão no <code>App.tsx</code>.
                     </p>
                     <ul className="list-disc pl-5 text-sm text-slate-400 space-y-2">
                         <li>
-                            <strong>App.tsx (useEffect):</strong> Ao montar, verifica se existe um JWT no localStorage.
+                            Verificação automática de token no <code>localStorage</code> ao carregar.
                         </li>
                         <li>
-                            <strong>API (validateSession):</strong> Chama <code>GET /api/auth/me</code> para validar o token e recuperar dados atualizados do usuário.
-                        </li>
-                        <li>
-                            <strong>Auto-Redirect:</strong> Se o token for inválido (401/403), limpa o storage e redireciona para Login automaticamente.
+                            Tratamento de erros de rede (500) separado de erros de autenticação (401/403) para evitar logouts acidentais.
                         </li>
                     </ul>
                  </div>
 
                  <div className="bg-slate-800 p-5 rounded-lg border border-slate-700">
-                    <h3 className="text-white font-bold mb-3">Componentes Administrativos (CRM)</h3>
-                    <p className="text-sm text-slate-400">
-                        O <code>AdminUsers.tsx</code> agora integra um CRM completo com filtragem, métricas de churn e modais de edição complexa (<code>UserModal.tsx</code>) para gestão de ciclo de vida do cliente.
+                    <h3 className="text-white font-bold mb-3">Admin Dashboard & CRM</h3>
+                    <p className="text-sm text-slate-400 mb-4">
+                        Atualizações recentes no componente <code>AdminUsers.tsx</code>:
                     </p>
+                    <ul className="list-disc pl-5 text-sm text-slate-400 space-y-2">
+                        <li>
+                            <strong>Login as User:</strong> Botão de ação rápida que permite ao administrador assumir a identidade de um cliente para debugar problemas de visualização.
+                        </li>
+                        <li>
+                            <strong>Filtragem Avançada:</strong> Busca por Status, Plano e Nome em tempo real.
+                        </li>
+                        <li>
+                            <strong>User Modal:</strong> Edição completa de perfil, assinatura manual e bloqueio de acesso (Security Tab).
+                        </li>
+                    </ul>
                  </div>
              </div>
           )}
@@ -308,12 +333,12 @@ const response = await ai.models.generateContent({
           {/* TAB: DEPLOY */}
           {activeTab === 'deploy' && (
              <div className="animate-fade-in space-y-6">
-              <h2 className="text-2xl font-bold text-white mb-6">Deploy Production (Plug & Play)</h2>
+              <h2 className="text-2xl font-bold text-white mb-6">Instruções de Deploy (Produção)</h2>
               
               <div className="bg-emerald-950/20 border border-emerald-800 p-6 rounded-lg mb-8">
                   <h3 className="text-emerald-400 font-bold text-lg mb-4">Zero-Config DB Init</h3>
                   <p className="text-slate-300 text-sm mb-4">
-                      O servidor agora conta com <code>initDatabase()</code> no startup. Não é necessário rodar scripts SQL manualmente na primeira instalação.
+                      O servidor executa <code>initDatabase()</code> na inicialização. Nenhuma migração manual é necessária para a primeira instalação.
                   </p>
                   <ol className="list-decimal pl-5 text-sm text-slate-400 space-y-2 font-mono">
                       <li>git clone repo-url</li>
@@ -328,9 +353,9 @@ const response = await ai.models.generateContent({
                   <h4 className="text-white font-bold mb-2">Variáveis de Ambiente (.env)</h4>
                   <pre className="text-xs text-slate-500 font-mono">
 PORT=3000
-API_KEY=google_gemini_key
-JWT_SECRET=complex_secret
-DATABASE_URL=postgres://user:pass@host:5432/db
+API_KEY=google_gemini_key_here
+JWT_SECRET=use_a_strong_random_string
+DATABASE_URL=postgres://user:pass@host:5432/db_name
                   </pre>
               </div>
             </div>

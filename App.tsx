@@ -39,12 +39,15 @@ export default function App() {
                  setActivePage(user.role === 'admin' ? 'admin-dashboard' : 'client-dashboard');
             }
         } catch (error: any) {
-            console.error("Falha na validação de sessão:", error.message);
-            // CRITICAL FIX: Apenas desloga se for erro de autenticação (401/403)
-            // Erros 500 ou de conexão não devem deslogar o usuário imediatamente.
-            if (error.message.includes('Sessão expirada') || error.message.includes('401') || error.message.includes('403')) {
+            console.error("Sessão:", error.message);
+            // CRITICAL FIX: Logout APENAS se o erro for explicitamente de autenticação.
+            // Erros de rede, banco fora do ar, ou 500 NÃO devem deslogar o usuário.
+            if (error.message.includes('AUTH_ERROR') || error.message.includes('Sessão expirada')) {
+                console.warn("Token inválido. Realizando logout.");
                 localStorage.removeItem('token');
                 setCurrentUser(null);
+            } else {
+                console.warn("Erro de conexão, mas mantendo sessão local.");
             }
         } finally {
             setIsAuthLoading(false);

@@ -33,16 +33,17 @@ const pool = new Pool({
   connectionString: connectionString,
   ssl: isCloudConnection ? { rejectUnauthorized: false } : false,
   connectionTimeoutMillis: 10000,
-  idleTimeoutMillis: 30000,
+  idleTimeoutMillis: 30000, // Mantém a conexão ativa por 30s
+  keepAlive: true, // Garante que o TCP keepalive esteja ativo
 });
 
 pool.on('connect', () => {
-  // Log silencioso de sucesso para não poluir, mas útil para debug se descomentar
-  // console.log('✅ DB Connected');
+  // Log silencioso de sucesso
 });
 
 pool.on('error', (err) => {
   console.error('❌ Erro Crítico no Pool do PostgreSQL:', err.message);
+  // Não encerra o processo, permite retry
 });
 
 export const query = async (text, params) => {

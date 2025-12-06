@@ -11,13 +11,10 @@ const getHeaders = () => {
 };
 
 const handleResponse = async (res: Response) => {
+  // CRITICAL FIX: Não forçar reload de página aqui. Isso causa o "loop de login".
+  // Apenas lançamos o erro e deixamos o App.tsx decidir limpar o estado.
   if (res.status === 401 || res.status === 403) {
-      if (localStorage.getItem('token') && !window.location.pathname.includes('login')) {
-          console.warn("Sessão expirada. Redirecionando...");
-          localStorage.removeItem('token');
-          window.location.href = '/'; 
-          throw new Error("Sessão expirada.");
-      }
+      throw new Error("AUTH_ERROR: Sessão expirada ou inválida.");
   }
 
   if (!res.ok) {

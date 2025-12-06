@@ -19,8 +19,9 @@ export const authenticate = (req, res, next) => {
 
   try {
     // Valida usando a MESMA chave exportada pelo db.js
-    // clockTolerance: 5 segundos para permitir pequenas diferenças de relógio do servidor
-    const decoded = jwt.verify(token, JWT_SECRET, { clockTolerance: 5 });
+    // CRITICAL FIX: clockTolerance aumentado para 30s. 
+    // Isso resolve problemas onde o servidor de DB e o servidor API têm relógios levemente diferentes.
+    const decoded = jwt.verify(token, JWT_SECRET, { clockTolerance: 30 });
     req.user = decoded;
     next();
   } catch (error) {
