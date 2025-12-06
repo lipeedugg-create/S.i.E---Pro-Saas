@@ -1,4 +1,4 @@
-# S.I.E. PRO (v4.0) - Strategic Intelligence Enterprise
+# S.I.E. PRO (v4.1) - Strategic Intelligence Enterprise
 
 **S.I.E. PRO** is a full-stack SaaS platform for strategic reputation monitoring and governmental intelligence. It utilizes **Google Gemini 2.5 Flash** to analyze news, social signals, and public transparency data in real-time.
 
@@ -40,8 +40,9 @@ CRON_KEY=secure_key_for_triggering_jobs
 API_KEY=your_google_gemini_api_key
 ```
 
-### 3. Database Setup
-Run the SQL script found in `pages/Documentation.tsx` (Database Tab) to initialize the v4.0 Schema.
+### 3. Database Migration (Important v4.1)
+The schema has been updated to include CRM fields (`status`, `phone`, `last_login`). 
+Run the SQL script found in `pages/Documentation.tsx` (Database Tab) to migrate your existing database safely. The script uses `ALTER TABLE IF NOT EXISTS` commands.
 
 ### 4. Run the Application
 
@@ -65,7 +66,7 @@ node server.js
 
 ---
 
-## 🔑 Key Features (v4.0 Enterprise)
+## 🔑 Key Features (v4.1 Enterprise)
 
 ### 1. Advanced CRM & User Lifecycle
 - **Status Control:** Admins can manage user states (`active`, `inactive`, `suspended`).
