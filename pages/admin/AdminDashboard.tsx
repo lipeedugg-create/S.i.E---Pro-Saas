@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { api } from '../../services/api'; // Mudança para API real
+import { api } from '../../services/api';
 import { User, Subscription, Payment, Plan } from '../../types';
 import { PaymentModal } from '../../components/PaymentModal';
 
@@ -23,7 +23,6 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ currentAdminId }
     setLoading(true);
     setError('');
     try {
-      // Executa chamadas em paralelo para performance
       const [usersData, subsData, paymentsData, plansData] = await Promise.all([
         api.getUsers(),
         api.getSubscriptions(),
@@ -48,7 +47,6 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ currentAdminId }
   const calculateStats = (u: User[], s: Subscription[], p: Payment[], pl: Plan[]) => {
     const activeSubs = s.filter(sub => sub.status === 'active');
     
-    // MRR = Soma dos preços dos planos das assinaturas ativas
     const mrr = activeSubs.reduce((acc, sub) => {
         const plan = pl.find(x => x.id === sub.plan_id);
         return acc + (plan ? Number(plan.price) : 0);
@@ -70,20 +68,20 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ currentAdminId }
     const days = [];
     const data = [];
     
-    // Gera os últimos 7 dias
     for (let i = 6; i >= 0; i--) {
         const d = new Date();
         d.setDate(d.getDate() - i);
         days.push(d.toISOString().split('T')[0]);
     }
 
-    // Calcula MRR histórico para cada dia
     for (const day of days) {
         const dailyMRR = s.reduce((acc, sub) => {
-            // Verifica se a assinatura estava ativa naquele dia
-            if (sub.start_date <= day && sub.end_date >= day) {
-                const plan = pl.find(x => x.id === sub.plan_id);
-                return acc + (plan ? Number(plan.price) : 0);
+            // Verifica se a assinatura estava ativa naquele dia (simplificado para lógica visual)
+            if (sub.start_date <= day && (sub.end_date >= day || !sub.end_date)) {
+                if (sub.status === 'active' || (sub.end_date && sub.end_date >= day)) {
+                   const plan = pl.find(x => x.id === sub.plan_id);
+                   return acc + (plan ? Number(plan.price) : 0);
+                }
             }
             return acc;
         }, 0);
@@ -136,7 +134,6 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ currentAdminId }
         <p className="text-slate-500">Dados em tempo real do banco PostgreSQL.</p>
       </div>
 
-      {/* KPI Cards */}
       <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
         <div className="bg-slate-800 border border-slate-700 rounded-xl p-6 shadow-lg">
           <p className="text-slate-400 text-sm mb-1 uppercase font-bold tracking-wider">Base de Usuários</p>
@@ -153,7 +150,6 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ currentAdminId }
           <p className="text-3xl font-bold text-green-500">R$ {stats.paymentsToday.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</p>
         </div>
 
-        {/* Mini Chart */}
         <div className="bg-slate-800 border border-slate-700 rounded-xl p-4 shadow-lg flex flex-col justify-between">
              <div className="flex justify-between items-center mb-2">
                  <span className="text-[10px] font-bold uppercase text-slate-400">Evolução MRR (7 dias)</span>
@@ -161,11 +157,9 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ currentAdminId }
              <div className="flex items-end gap-2 h-16 pt-2">
                 {chartData.map((d, i) => (
                     <div key={i} className="flex-1 flex flex-col items-center group relative cursor-help">
-                        {/* Tooltip */}
                         <div className="absolute bottom-full mb-1 hidden group-hover:block bg-slate-950 text-white text-[10px] px-2 py-1 rounded border border-slate-700 whitespace-nowrap z-10">
                             {d.day.split('-').reverse().slice(0, 2).join('/')}: R$ {d.value.toFixed(2)}
                         </div>
-                        {/* Bar */}
                         <div 
                            className="w-full bg-blue-600 rounded-t-sm opacity-60 hover:opacity-100 transition-all"
                            style={{ height: `${(d.value / (maxChartValue || 1)) * 100}%` }}
@@ -206,8 +200,9 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ currentAdminId }
             ) : (
               filteredUsers.map(user => {
                 const sub = getSubForUser(user.id);
-                // Lógica simples para identificar se está expirado
                 const isExpired = sub?.status === 'expired' || (sub?.end_date ? new Date(sub.end_date) < new Date() : false);
+                // Utilizando a variável 'plans' para obter o nome, ou fallback para o ID
+                const planName = sub ? (plans.find(p => p.id === sub.plan_id)?.name || sub.plan_id) : 'Sem Plano';
                 
                 return (
                   <tr key={user.id} className="hover:bg-slate-750 transition-colors">
@@ -218,7 +213,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ currentAdminId }
                     <td className="px-6 py-4">
                       {sub ? (
                         <span className="bg-slate-900 border border-slate-600 text-slate-300 text-[10px] px-2 py-1 rounded uppercase font-bold tracking-wider">
-                          {sub.plan_id.substring(0, 15)}
+                          {planName}
                         </span>
                       ) : (
                         <span className="text-slate-600 italic">Sem Plano</span>
@@ -261,7 +256,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ currentAdminId }
           onClose={() => setSelectedUser(null)}
           onSuccess={() => {
             setSelectedUser(null);
-            fetchData(); // Recarrega dados reais após pagamento
+            fetchData();
           }}
         />
       )}

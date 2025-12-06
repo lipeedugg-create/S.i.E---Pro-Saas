@@ -37,7 +37,7 @@ export const Documentation: React.FC<DocumentationProps> = ({ onClose }) => {
            <div className="w-8 h-8 bg-emerald-600 rounded flex items-center justify-center font-bold text-white text-xs">DOC</div>
            <div>
              <h1 className="text-white font-bold text-sm leading-tight">S.I.E. PRO - Documentação Técnica</h1>
-             <p className="text-[10px] text-slate-500 font-mono">v3.2 - Produção (Full Stack + Plugins)</p>
+             <p className="text-[10px] text-slate-500 font-mono">v3.3 - Refactor User Management & Impersonation</p>
            </div>
         </div>
         <div className="flex items-center gap-4">
@@ -266,6 +266,27 @@ ON CONFLICT DO NOTHING;
                   </div>
                 </div>
 
+                <h3 className="text-white font-bold mb-4">Rotas Administrativas Principais</h3>
+                <div className="bg-slate-800 p-4 rounded border border-slate-700 overflow-x-auto mb-6">
+                  <table className="w-full text-left text-xs text-slate-400 font-mono">
+                    <thead>
+                      <tr className="border-b border-slate-700 text-slate-500">
+                        <th className="pb-2">Método</th>
+                        <th className="pb-2">Endpoint</th>
+                        <th className="pb-2">Descrição</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-slate-700/50">
+                      <tr><td className="py-2 text-blue-400">GET</td><td>/api/admin/users</td><td>Lista usuários e status de assinatura</td></tr>
+                      <tr><td className="py-2 text-green-400">POST</td><td>/api/admin/users</td><td>Cria novo usuário (com hash de senha)</td></tr>
+                      <tr><td className="py-2 text-yellow-400">PUT</td><td>/api/admin/users/:id</td><td>Edita nome, email, role ou senha</td></tr>
+                      <tr><td className="py-2 text-purple-400">POST</td><td>/api/admin/users/:id/impersonate</td><td><strong>Login Como Usuário</strong> (Gera token scoped)</td></tr>
+                      <tr><td className="py-2 text-red-400">DELETE</td><td>/api/admin/plugins/:id</td><td>Remove um plugin do catálogo</td></tr>
+                      <tr><td className="py-2 text-yellow-400">PATCH</td><td>/api/admin/plugins/:id/status</td><td>Ativa/Desativa funcionalidades</td></tr>
+                    </tbody>
+                  </table>
+                </div>
+
                 <CopyBlock 
                     title="middleware/auth.js"
                     lang="javascript"
@@ -332,16 +353,16 @@ app.listen(3000, () => console.log('Server running on port 3000'));
                     </p>
                 </div>
 
-                <h3 className="text-white font-bold mb-4">Service Layer & API</h3>
+                <h3 className="text-white font-bold mb-4">Service Layer & API (Refatorado)</h3>
                 <p className="text-slate-400 text-sm mb-4">
-                    O arquivo <code>services/api.ts</code> centraliza todas as chamadas <code>fetch</code> e gerencia a injeção do token JWT.
+                    O arquivo <code>services/api.ts</code> foi reescrito para eliminar dados mockados. Todas as interações agora passam pelo backend Node.js.
                 </p>
 
                 <CopyBlock 
                     title="services/api.ts"
                     lang="typescript"
                     code={`
-const API_URL = import.meta.env.VITE_API_URL || '/api';
+const API_URL = '/api'; // Caminho relativo para funcionar com proxy e prod
 
 const getHeaders = () => ({
     'Content-Type': 'application/json',
@@ -349,9 +370,8 @@ const getHeaders = () => ({
 });
 
 export const api = {
+    // Auth & Impersonation
     login: async (email, password) => { /* ... */ },
-    
-    // Impersonation Feature: Admin gera token de Client
     impersonate: async (userId: string) => {
         const res = await fetch(\`\${API_URL}/admin/users/\${userId}/impersonate\`, {
             method: 'POST',
@@ -360,10 +380,16 @@ export const api = {
         return res.json(); // Retorna { token, user } do alvo
     },
 
-    // Nova função para o Plugin
-    searchPublicAdmin: async (city: string) => {
-        const res = await fetch(\`\${API_URL}/client/tools/public-admin-search\`, { ... });
-        return res.json();
+    // User Management (Novo)
+    upsertUser: async (user) => {
+        // Decide entre POST (Create) e PUT (Update) baseado no ID
+        const method = user.id ? 'PUT' : 'POST';
+        // ...
+    },
+    
+    // Plugin Management (Novo)
+    deletePlugin: async (id) => {
+        await fetch(\`\${API_URL}/admin/plugins/\${id}\`, { method: 'DELETE', ... });
     }
 };
                     `}
@@ -380,9 +406,9 @@ export const api = {
                         </p>
                         <ol className="list-decimal list-inside text-xs text-slate-400 space-y-1 font-mono bg-slate-900/50 p-3 rounded border border-slate-800">
                             <li>Admin clica em "Login ➜" na lista de usuários (AdminUsers).</li>
-                            <li>Frontend chama <code>POST /admin/users/:id/impersonate</code>.</li>
+                            <li>Componente chama <code>api.impersonate(id)</code>.</li>
                             <li>Backend valida Admin e gera novo JWT assinado com ID do alvo.</li>
-                            <li>Frontend substitui o token no <code>localStorage</code> e recarrega a aplicação.</li>
+                            <li>Frontend substitui o token no <code>localStorage</code> e recarrega a aplicação via <code>onLogin</code>.</li>
                         </ol>
                     </div>
 
@@ -394,8 +420,8 @@ export const api = {
                            Interface completa para administração de contas, separada em:
                         </p>
                         <ul className="list-disc list-inside text-xs text-slate-400 space-y-1">
-                           <li><strong>Listagem:</strong> Filtro por nome/email e visualização de status de assinatura.</li>
-                           <li><strong>Modal (UserModal.tsx):</strong> Formulário reutilizável para Criar e Editar usuários (Upsert).</li>
+                           <li><strong>AdminUsers.tsx:</strong> Tabela com filtros, listagem e botões de ação (Editar, Impersonate).</li>
+                           <li><strong>UserModal.tsx:</strong> Formulário inteligente que detecta criação vs edição. Gerencia hash de senha enviando apenas se preenchido.</li>
                            <li><strong>Feedback Visual:</strong> Indicadores de assinatura ativa/expirada e role (Admin/Client).</li>
                         </ul>
                     </div>
@@ -404,12 +430,12 @@ export const api = {
                 <h3 className="text-white font-bold mb-4">Novos Componentes e Plugins</h3>
                 <ul className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm text-slate-400">
                     <li className="bg-slate-800 p-3 rounded border border-slate-700">
-                        <strong className="text-white block mb-1">PublicAdminSearch.tsx (NOVO)</strong>
+                        <strong className="text-white block mb-1">PublicAdminSearch.tsx (Plugin)</strong>
                         Interface "Raio-X Administrativo". Utiliza cards e tabelas para exibir dados políticos estruturados (Prefeito, Câmara, Secretariado).
                     </li>
                     <li className="bg-slate-800 p-3 rounded border border-slate-700">
                         <strong className="text-white block mb-1">AdminPlugins.tsx</strong>
-                        Marketplace para instalar e ativar plugins, modificando a tabela <code>plugins</code> e <code>plan_plugins</code>.
+                        Marketplace para instalar e ativar plugins. Agora suporta exclusão física do plugin via `DELETE`.
                     </li>
                 </ul>
              </div>

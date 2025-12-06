@@ -42,6 +42,15 @@ Allows an admin to log in as a specific client without knowing their password.
   - **Effect:** Automatically extends the user's subscription by 30 days.
   - Body: `{ "subscription_id": "...", "amount": 299.00, "reference_id": "PIX123" }`
 
+### Plugins & Plans Management
+- **GET** `/admin/plans` - List all subscription plans.
+- **POST** `/admin/plans` - Create a new plan.
+- **DELETE** `/admin/plans/:id` - Delete a plan (only if no subscriptions are active).
+- **GET** `/admin/plugins` - List all installed plugins and their status.
+- **PATCH** `/admin/plugins/:id/status` - Toggle status (`active`, `installed`, `available`).
+- **POST** `/admin/plugins/:id/toggle-plan` - Grant/Revoke plugin access to a specific plan.
+- **DELETE** `/admin/plugins/:id` - Permanently remove a plugin from the database.
+
 ### Logs
 - **GET** `/admin/logs` - Fetch audit logs of AI usage and costs.
 
@@ -57,6 +66,11 @@ Allows an admin to log in as a specific client without knowing their password.
 
 ### Dashboard Data
 - **GET** `/client/items` - Fetch the latest analyzed news items (Master Items).
+
+### Tools & Plugins
+- **POST** `/client/tools/public-admin-search` - **Raio-X Administrativo**. Generates a public transparency report using Gemini AI.
+  - Body: `{ "city": "Curitiba" }`
+  - Response: `{ "city": "...", "mayor": {...}, ... }`
 
 ---
 
