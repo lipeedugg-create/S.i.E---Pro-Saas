@@ -5,52 +5,62 @@ import path from 'path';
 import { fileURLToPath } from 'url';
 import fs from 'fs';
 
-// Rotas
+// Importação das Rotas
 import authRoutes from './routes/auth.js';
 import adminRoutes from './routes/admin.js';
 import clientRoutes from './routes/client.js';
 import monitoringRoutes from './routes/monitoring.js';
 
+// Carrega variáveis de ambiente
 dotenv.config();
 
 const app = express();
 const PORT = process.env.PORT || 3000;
 
-// Middleware
-app.use(cors()); // Em produção, configure a origin: 'https://seu-dominio.com'
+// Configuração de CORS
+// Em produção, se estiver usando Nginx, isso pode ser ajustado, mas '*' funciona para APIs públicas.
+app.use(cors()); 
 app.use(express.json());
 
-// API Routes
+// --- ROTAS DA API ---
 app.use('/api/auth', authRoutes);
 app.use('/api/admin', adminRoutes);
 app.use('/api/client', clientRoutes);
 app.use('/api/monitoring', monitoringRoutes);
 
-// Servir Frontend em Produção (Build)
+// --- SERVIR FRONTEND (PRODUÇÃO) ---
+// Define __dirname para ES Modules
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
+
+// Caminho para a pasta de build do Vite
 const distPath = path.join(__dirname, 'dist');
 
-// Verifica se a pasta dist existe antes de servir
+// Verifica se o build existe
 if (fs.existsSync(distPath)) {
-    console.log('Serving static files from:', distPath);
+    console.log(`📦 Servindo arquivos estáticos de: ${distPath}`);
+    
+    // Serve os arquivos estáticos (JS, CSS, Imagens)
     app.use(express.static(distPath));
     
-    // SPA Fallback: Qualquer rota não-API retorna index.html
+    // SPA Fallback: Qualquer rota que NÃO comece com /api retorna o index.html
+    // Isso permite que o React Router gerencie a navegação (ex: /admin-dashboard)
     app.get('*', (req, res) => {
         if (req.path.startsWith('/api')) {
-            return res.status(404).json({ message: 'API endpoint not found' });
+            return res.status(404).json({ message: 'Endpoint da API não encontrado' });
         }
         res.sendFile(path.join(distPath, 'index.html'));
     });
 } else {
-    console.log('Dist folder not found. Running in API-only mode or waiting for build.');
+    console.warn('⚠️  Pasta "dist" não encontrada. Execute "npm run build" para gerar o frontend.');
     app.get('/', (req, res) => {
-        res.send('API Server Running. Frontend build (dist) not found.');
+        res.send('Backend API is running. Frontend build not found.');
     });
 }
 
-app.listen(PORT, () => {
+// Inicia o Servidor
+app.listen(PORT, '0.0.0.0', () => {
   console.log(`🚀 S.I.E. PRO Server rodando na porta ${PORT}`);
-  console.log(`📡 Modo: ${process.env.NODE_ENV || 'development'}`);
+  console.log(`📡 Ambiente: ${process.env.NODE_ENV || 'development'}`);
+  console.log(`🔗 Acesso local: http://localhost:${PORT}`);
 });

@@ -1,14 +1,15 @@
 import { User, Subscription, Payment, RequestLog, MasterItem, MonitoringConfig, Plugin, Plan } from '../types';
 
 /**
- * PRODUCTION API CLIENT
- * Este arquivo substitui o 'services/db.ts' quando o backend Node.js estiver rodando.
+ * CLIENTE API DE PRODUÇÃO
  * 
- * Configuração:
- * 1. O VITE_API_URL pode ser deixado vazio para usar o proxy relativo (/api)
+ * Estratégia de URL:
+ * Em produção, o frontend é servido pelo mesmo servidor Node.js que hospeda a API.
+ * Portanto, usamos um caminho relativo ('/api') como base.
+ * Isso evita problemas de CORS e portas bloqueadas por Firewalls.
  */
 
-// Use relative path by default to leverage Vite proxy in dev and same-origin in prod
+// Se VITE_API_URL não estiver definido no .env do build, usa '/api'
 const API_URL = (import.meta as any).env?.VITE_API_URL || '/api';
 
 const getHeaders = () => {
@@ -19,10 +20,12 @@ const getHeaders = () => {
   };
 };
 
+// Tratamento centralizado de erros
 const handleResponse = async (res: Response) => {
   if (!res.ok) {
-    const error = await res.json().catch(() => ({ message: 'Erro desconhecido' }));
-    throw new Error(error.message || `HTTP Error ${res.status}`);
+    // Tenta ler o JSON de erro, se falhar, usa texto padrão
+    const error = await res.json().catch(() => ({ message: `Erro HTTP ${res.status}` }));
+    throw new Error(error.message || `Erro na requisição: ${res.status}`);
   }
   return res.json();
 };
