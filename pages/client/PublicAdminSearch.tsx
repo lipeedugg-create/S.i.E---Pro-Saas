@@ -20,10 +20,21 @@ export const PublicAdminSearch: React.FC = () => {
       const result = await api.searchPublicAdmin(city);
       setData(result);
     } catch (err: any) {
-      setError('Não foi possível recuperar os dados desta cidade. Verifique o nome ou tente novamente.');
+      setError('Não foi possível recuperar os dados desta cidade. Verifique o nome ou tente novamente mais tarde.');
     } finally {
       setLoading(false);
     }
+  };
+
+  const handleExport = () => {
+    if (!data) return;
+    const jsonString = `data:text/json;chatset=utf-8,${encodeURIComponent(
+      JSON.stringify(data, null, 2)
+    )}`;
+    const link = document.createElement("a");
+    link.href = jsonString;
+    link.download = `relatorio_admin_${data.city.toLowerCase().replace(/\s/g, '_')}.json`;
+    link.click();
   };
 
   return (
@@ -52,17 +63,22 @@ export const PublicAdminSearch: React.FC = () => {
               onChange={(e) => setCity(e.target.value)}
               placeholder="Digite o nome da cidade (ex: Curitiba, Campinas...)"
               className="flex-1 bg-transparent border-none px-6 py-5 text-lg text-white placeholder-slate-500 focus:outline-none focus:ring-0"
+              disabled={loading}
             />
             <button 
               type="submit" 
               disabled={loading}
               className="bg-cyan-700 hover:bg-cyan-600 text-white px-8 font-bold tracking-wide transition-colors disabled:opacity-50 disabled:cursor-wait border-l border-slate-800"
             >
-              {loading ? 'PROCESSANDO...' : 'CONSULTAR'}
+              {loading ? 'BUSCANDO...' : 'CONSULTAR'}
             </button>
           </div>
         </form>
-        {error && <p className="mt-4 text-red-400 text-center bg-red-900/20 py-2 rounded border border-red-900/50">{error}</p>}
+        {error && (
+            <div className="mt-4 p-4 bg-red-900/20 border border-red-900/50 rounded-lg text-red-400 text-center text-sm">
+                ⚠️ {error}
+            </div>
+        )}
       </div>
 
       {/* Loading Animation (Data Bars) */}
@@ -76,18 +92,32 @@ export const PublicAdminSearch: React.FC = () => {
             <div className="w-2 bg-cyan-500/50 animate-[pulse_1s_ease-in-out_infinite_0.8s] h-6"></div>
           </div>
           <p className="text-cyan-400 font-mono text-sm animate-pulse">ACESSANDO BASES DE DADOS GOVERNAMENTAIS...</p>
+          <p className="text-slate-500 text-xs mt-2">Isso pode levar alguns segundos.</p>
         </div>
       )}
 
       {/* Results Display */}
       {data && (
-        <div className="max-w-6xl mx-auto animate-fade-in-up space-y-10">
+        <div className="max-w-6xl mx-auto animate-fade-in-up space-y-10 pb-20">
           
+          <div className="flex justify-between items-center border-b border-slate-800 pb-4">
+              <div>
+                  <h2 className="text-xl font-bold text-white">Relatório: {data.city}</h2>
+                  <p className="text-xs text-slate-500">Gerado em: {data.last_updated || new Date().toLocaleDateString()}</p>
+              </div>
+              <button 
+                onClick={handleExport}
+                className="text-xs bg-slate-800 hover:bg-slate-700 text-cyan-400 border border-slate-700 px-3 py-2 rounded transition-colors flex items-center gap-2"
+              >
+                <span>💾</span> Exportar JSON
+              </button>
+          </div>
+
           {/* Executive Summary Cards */}
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
             {/* Mayor Card */}
-            <div className="bg-slate-800 rounded-xl p-8 border-l-4 border-cyan-500 shadow-xl relative overflow-hidden">
-              <div className="absolute top-0 right-0 p-4 opacity-10 text-9xl font-serif font-bold text-white select-none">P</div>
+            <div className="bg-slate-800 rounded-xl p-8 border-l-4 border-cyan-500 shadow-xl relative overflow-hidden group hover:bg-slate-800/80 transition-colors">
+              <div className="absolute top-0 right-0 p-4 opacity-10 text-9xl font-serif font-bold text-white select-none group-hover:opacity-20 transition-opacity">P</div>
               <p className="text-cyan-400 text-xs font-bold uppercase tracking-widest mb-2">Poder Executivo</p>
               <h2 className="text-3xl font-bold text-white mb-1">{data.mayor.name}</h2>
               <div className="flex items-center gap-3 mb-6">
@@ -109,8 +139,8 @@ export const PublicAdminSearch: React.FC = () => {
             </div>
 
             {/* Vice Mayor Card */}
-            <div className="bg-slate-800 rounded-xl p-8 border-l-4 border-slate-600 shadow-xl relative overflow-hidden">
-               <div className="absolute top-0 right-0 p-4 opacity-10 text-9xl font-serif font-bold text-white select-none">V</div>
+            <div className="bg-slate-800 rounded-xl p-8 border-l-4 border-slate-600 shadow-xl relative overflow-hidden group hover:bg-slate-800/80 transition-colors">
+               <div className="absolute top-0 right-0 p-4 opacity-10 text-9xl font-serif font-bold text-white select-none group-hover:opacity-20 transition-opacity">V</div>
                <p className="text-slate-400 text-xs font-bold uppercase tracking-widest mb-2">Poder Executivo</p>
                <h2 className="text-2xl font-bold text-slate-200 mb-1">{data.vice_mayor.name}</h2>
                <div className="flex items-center gap-3 mb-6">

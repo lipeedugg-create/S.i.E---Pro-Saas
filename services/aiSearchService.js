@@ -33,7 +33,10 @@ export const searchCityAdmin = async (city) => {
                 "last_updated": "Data atual"
             }
             
-            IMPORTANTE: Se não encontrar dados exatos de salário, estime com base no portal da transparência para cidades desse porte no Brasil. Seja profissional e neutro.
+            IMPORTANTE: 
+            - Responda APENAS o JSON. 
+            - Não use blocos de código markdown (\`\`\`json).
+            - Se não encontrar dados exatos de salário, estime com base no portal da transparência.
         `;
 
         const response = await ai.models.generateContent({
@@ -41,13 +44,21 @@ export const searchCityAdmin = async (city) => {
             contents: prompt,
             config: {
                 responseMimeType: 'application/json',
-                temperature: 0.2 // Baixa temperatura para dados mais factuais
+                temperature: 0.1 // Temperatura mínima para reduzir alucinações
             }
         });
 
-        const data = JSON.parse(response.text);
+        // Tratamento robusto para remover Markdown caso o modelo inclua
+        let textResponse = response.text;
+        if (textResponse.includes('```json')) {
+            textResponse = textResponse.replace(/```json/g, '').replace(/```/g, '');
+        } else if (textResponse.includes('```')) {
+            textResponse = textResponse.replace(/```/g, '');
+        }
+
+        const data = JSON.parse(textResponse.trim());
         
-        // Cálculo simples de custo para log (opcional)
+        // Cálculo de custo aproximado
         const usage = response.usageMetadata;
         const cost = (usage.promptTokenCount / 1000000 * 0.10) + (usage.candidatesTokenCount / 1000000 * 0.30);
 
@@ -55,6 +66,6 @@ export const searchCityAdmin = async (city) => {
 
     } catch (error) {
         console.error("AI Search Error:", error);
-        throw new Error("Falha ao consultar inteligência governamental.");
+        throw new Error("Falha ao processar inteligência governamental. Tente novamente.");
     }
 };

@@ -7,7 +7,7 @@ interface DocumentationProps {
 type TabType = 'database' | 'backend' | 'frontend' | 'ai-core' | 'deploy';
 
 export const Documentation: React.FC<DocumentationProps> = ({ onClose }) => {
-  const [activeTab, setActiveTab] = useState<TabType>('database');
+  const [activeTab, setActiveTab] = useState<TabType>('frontend');
 
   const CopyBlock = ({ title, code, lang = 'bash', warning = false }: { title: string, code: string, lang?: string, warning?: boolean }) => (
     <div className={`mb-8 rounded-lg overflow-hidden border shadow-xl ${warning ? 'border-red-800' : 'border-slate-700'}`}>
@@ -37,7 +37,7 @@ export const Documentation: React.FC<DocumentationProps> = ({ onClose }) => {
            <div className="w-8 h-8 bg-emerald-600 rounded flex items-center justify-center font-bold text-white text-xs">DOC</div>
            <div>
              <h1 className="text-white font-bold text-sm leading-tight">S.I.E. PRO - Documentação Técnica</h1>
-             <p className="text-[10px] text-slate-500 font-mono">v3.1 - Produção (Full Stack)</p>
+             <p className="text-[10px] text-slate-500 font-mono">v3.2 - Produção (Full Stack + Plugins)</p>
            </div>
         </div>
         <div className="flex items-center gap-4">
@@ -233,7 +233,8 @@ ON CONFLICT DO NOTHING;
                         <li>/middleware/auth.js <span className="text-slate-600">// JWT Guard</span></li>
                         <li>/routes/admin.js <span className="text-slate-600">// Rotas Admin</span></li>
                         <li>/routes/client.js <span className="text-slate-600">// Rotas User</span></li>
-                        <li>/services/collectorService.js <span className="text-slate-600">// IA Core</span></li>
+                        <li>/services/collectorService.js <span className="text-slate-600">// IA Core (Crawler)</span></li>
+                        <li>/services/aiSearchService.js <span className="text-emerald-400">// IA Search (Plugin)</span></li>
                         <li>server.js <span className="text-slate-600">// Entry Point</span></li>
                     </ul>
                   </div>
@@ -342,8 +343,9 @@ export const api = {
         return res.json(); // Retorna { token, user } do alvo
     },
 
-    getLogs: async () => {
-        const res = await fetch(\`\${API_URL}/admin/logs\`, { headers: getHeaders() });
+    // Nova função para o Plugin
+    searchPublicAdmin: async (city: string) => {
+        const res = await fetch(\`\${API_URL}/client/tools/public-admin-search\`, { ... });
         return res.json();
     }
 };
@@ -360,7 +362,7 @@ export const api = {
                             Permite que administradores acessem o painel de qualquer cliente sem saber a senha (bypassing auth), ideal para suporte e debugging.
                         </p>
                         <ol className="list-decimal list-inside text-xs text-slate-400 space-y-1 font-mono bg-slate-900/50 p-3 rounded border border-slate-800">
-                            <li>Admin clica em "Login ➜" na lista de usuários.</li>
+                            <li>Admin clica em "Login ➜" na lista de usuários (AdminUsers).</li>
                             <li>Frontend chama <code>POST /admin/users/:id/impersonate</code>.</li>
                             <li>Backend valida Admin e gera novo JWT assinado com ID do alvo.</li>
                             <li>Frontend substitui o token no <code>localStorage</code> e recarrega a aplicação.</li>
@@ -369,7 +371,7 @@ export const api = {
 
                     <div className="bg-slate-800 p-5 rounded-lg border border-slate-700 shadow-sm">
                         <h4 className="text-emerald-400 font-bold text-base mb-2">
-                           👥 CRUD de Usuários (AdminUsers)
+                           👥 CRUD de Usuários (AdminUsers & UserModal)
                         </h4>
                         <p className="text-sm text-slate-300 mb-2">
                            Interface completa para administração de contas, separada em:
@@ -382,15 +384,15 @@ export const api = {
                     </div>
                 </div>
 
-                <h3 className="text-white font-bold mb-4">Outros Componentes Refatorados</h3>
+                <h3 className="text-white font-bold mb-4">Novos Componentes e Plugins</h3>
                 <ul className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm text-slate-400">
+                    <li className="bg-slate-800 p-3 rounded border border-slate-700">
+                        <strong className="text-white block mb-1">PublicAdminSearch.tsx (NOVO)</strong>
+                        Interface "Raio-X Administrativo". Utiliza cards e tabelas para exibir dados políticos estruturados (Prefeito, Câmara, Secretariado).
+                    </li>
                     <li className="bg-slate-800 p-3 rounded border border-slate-700">
                         <strong className="text-white block mb-1">AdminPlugins.tsx</strong>
                         Marketplace para instalar e ativar plugins, modificando a tabela <code>plugins</code> e <code>plan_plugins</code>.
-                    </li>
-                    <li className="bg-slate-800 p-3 rounded border border-slate-700">
-                        <strong className="text-white block mb-1">ClientConfig.tsx</strong>
-                        Interface de auto-atendimento para o cliente definir keywords de monitoramento (JSONB).
                     </li>
                 </ul>
              </div>
@@ -421,45 +423,40 @@ export const api = {
                  </div>
               </div>
 
-              <h3 className="text-white font-bold mb-4">Lógica de Coleta (Collector Service)</h3>
+              <h3 className="text-white font-bold mb-4">Novo: Agente de Pesquisa Governamental</h3>
               <p className="text-slate-400 text-sm mb-4">
-                  O arquivo <code>services/collectorService.js</code> é acionado via CRON. Ele itera sobre configurações ativas, "coleta" dados (simulação de crawler) e envia para análise.
+                  O módulo de transparência (Raio-X) utiliza um serviço dedicado (<code>services/aiSearchService.js</code>) com prompt engineering específico para garantir a integridade do JSON retornado.
               </p>
 
               <CopyBlock 
-                title="backend/services/collectorService.js" 
+                title="Prompt Structure (aiSearchService.js)" 
                 lang="javascript"
                 code={`
-import { GoogleGenAI } from "@google/genai";
+const prompt = \`
+    Você é o SISTEMA SIE.
+    Gere um relatório de transparência pública sobre a cidade de: \${city}.
+    
+    FORMATO JSON OBRIGATÓRIO:
+    {
+        "city": "...",
+        "mayor": { "name": "...", "role": "Prefeito", "party": "...", "past_roles": [] },
+        "councilors": [...],
+        "key_servants": [{ "name": "...", "department": "...", "estimated_salary": "..." }]
+    }
+\`;
 
-const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
-
-async function analyzeWithGemini(text) {
-    const response = await ai.models.generateContent({
-        model: 'gemini-2.5-flash',
-        contents: text,
-        config: {
-            // Instrução de Sistema para forçar JSON estruturado
-            systemInstruction: "Você é um analista de risco corporativo. Retorne JSON: { sentiment, summary, keywords[] }.",
-            responseMimeType: 'application/json'
-        }
-    });
-
-    // Cálculo de Custos para Auditoria
-    // Preço hipotético Gemini 2.5 Flash: $0.10 input / $0.30 output (por milhão)
-    const usage = response.usageMetadata;
-    const cost = (usage.promptTokenCount / 1000000 * 0.10) + 
-                 (usage.candidatesTokenCount / 1000000 * 0.30);
-
-    return { result: JSON.parse(response.text), cost };
-}
+// Configuração Gemini
+const config = {
+    responseMimeType: 'application/json',
+    temperature: 0.2 // Baixa criatividade para garantir fatos
+};
                 `}
               />
 
               <div className="bg-amber-900/20 border border-amber-900/50 p-4 rounded-lg">
                   <h4 className="text-amber-500 font-bold text-sm mb-2">Auditoria Financeira (requests_log)</h4>
                   <p className="text-slate-400 text-xs">
-                      Cada chamada à API do Gemini é registrada na tabela <code>requests_log</code> com os tokens exatos de entrada/saída e o custo calculado em USD. Isso permite faturamento transparente por uso.
+                      Cada chamada à API do Gemini (seja Monitoramento ou Pesquisa Pública) é registrada na tabela <code>requests_log</code> com os tokens exatos de entrada/saída e o custo calculado em USD.
                   </p>
               </div>
             </div>
