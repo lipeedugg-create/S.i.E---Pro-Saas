@@ -3,6 +3,7 @@ import cors from 'cors';
 import dotenv from 'dotenv';
 import path from 'path';
 import { fileURLToPath } from 'url';
+import fs from 'fs';
 
 // Rotas
 import authRoutes from './routes/auth.js';
@@ -28,12 +29,24 @@ app.use('/api/monitoring', monitoringRoutes);
 // Servir Frontend em Produção (Build)
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
+const distPath = path.join(__dirname, 'dist');
 
-if (process.env.NODE_ENV === 'production') {
-    app.use(express.static(path.join(__dirname, 'dist')));
+// Verifica se a pasta dist existe antes de servir
+if (fs.existsSync(distPath)) {
+    console.log('Serving static files from:', distPath);
+    app.use(express.static(distPath));
     
+    // SPA Fallback: Qualquer rota não-API retorna index.html
     app.get('*', (req, res) => {
-        res.sendFile(path.join(__dirname, 'dist', 'index.html'));
+        if (req.path.startsWith('/api')) {
+            return res.status(404).json({ message: 'API endpoint not found' });
+        }
+        res.sendFile(path.join(distPath, 'index.html'));
+    });
+} else {
+    console.log('Dist folder not found. Running in API-only mode or waiting for build.');
+    app.get('/', (req, res) => {
+        res.send('API Server Running. Frontend build (dist) not found.');
     });
 }
 
