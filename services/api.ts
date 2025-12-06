@@ -129,13 +129,13 @@ export const api = {
   },
 
   // --- CLIENT AREA ---
-  getItemsByUserId: async (userId: string): Promise<MasterItem[]> => {
+  getItemsByUserId: async (_userId: string): Promise<MasterItem[]> => {
     // Em produção, o backend pega o ID do token JWT, mas passamos aqui por compatibilidade
     const res = await fetch(`${API_URL}/client/items`, { headers: getHeaders() });
     return handleResponse(res);
   },
 
-  getConfig: async (userId: string): Promise<MonitoringConfig | null> => {
+  getConfig: async (_userId: string): Promise<MonitoringConfig | null> => {
     const res = await fetch(`${API_URL}/client/config`, { headers: getHeaders() });
     return handleResponse(res);
   },
