@@ -18,11 +18,11 @@ const app = express();
 const PORT = process.env.PORT || 3000;
 
 // Configuração de CORS
-// Em produção, se estiver usando Nginx, isso pode ser ajustado, mas '*' funciona para APIs públicas.
 app.use(cors()); 
 app.use(express.json());
 
 // --- ROTAS DA API ---
+// Todas as rotas de dados começam com /api para não conflitar com o frontend
 app.use('/api/auth', authRoutes);
 app.use('/api/admin', adminRoutes);
 app.use('/api/client', clientRoutes);
@@ -36,7 +36,7 @@ const __dirname = path.dirname(__filename);
 // Caminho para a pasta de build do Vite
 const distPath = path.join(__dirname, 'dist');
 
-// Verifica se o build existe
+// Verifica se o build existe e serve os arquivos
 if (fs.existsSync(distPath)) {
     console.log(`📦 Servindo arquivos estáticos de: ${distPath}`);
     
@@ -52,6 +52,7 @@ if (fs.existsSync(distPath)) {
         res.sendFile(path.join(distPath, 'index.html'));
     });
 } else {
+    // Fallback para desenvolvimento local sem build
     console.warn('⚠️  Pasta "dist" não encontrada. Execute "npm run build" para gerar o frontend.');
     app.get('/', (req, res) => {
         res.send('Backend API is running. Frontend build not found.');
@@ -62,5 +63,4 @@ if (fs.existsSync(distPath)) {
 app.listen(PORT, '0.0.0.0', () => {
   console.log(`🚀 S.I.E. PRO Server rodando na porta ${PORT}`);
   console.log(`📡 Ambiente: ${process.env.NODE_ENV || 'development'}`);
-  console.log(`🔗 Acesso local: http://localhost:${PORT}`);
 });
