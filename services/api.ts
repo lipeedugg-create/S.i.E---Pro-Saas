@@ -5,11 +5,11 @@ import { User, Subscription, Payment, RequestLog, MasterItem, MonitoringConfig, 
  * Este arquivo substitui o 'services/db.ts' quando o backend Node.js estiver rodando.
  * 
  * Configuração:
- * 1. Crie um arquivo .env na raiz do frontend com: VITE_API_URL=http://localhost:3000/api
- * 2. Substitua os imports nos componentes: import { api } from '../../services/api';
+ * 1. O VITE_API_URL pode ser deixado vazio para usar o proxy relativo (/api)
  */
 
-const API_URL = (import.meta as any).env?.VITE_API_URL || 'http://localhost:3000/api';
+// Use relative path by default to leverage Vite proxy in dev and same-origin in prod
+const API_URL = (import.meta as any).env?.VITE_API_URL || '/api';
 
 const getHeaders = () => {
   const token = localStorage.getItem('token');
@@ -130,7 +130,6 @@ export const api = {
 
   // --- CLIENT AREA ---
   getItemsByUserId: async (_userId: string): Promise<MasterItem[]> => {
-    // Em produção, o backend pega o ID do token JWT, mas passamos aqui por compatibilidade
     const res = await fetch(`${API_URL}/client/items`, { headers: getHeaders() });
     return handleResponse(res);
   },
