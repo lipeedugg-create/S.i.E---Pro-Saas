@@ -28,6 +28,12 @@ export interface Plan {
 }
 
 // Plugins / Addons System
+export interface PluginConfig {
+  systemPrompt?: string;
+  negativePrompt?: string;
+  temperature?: number;
+}
+
 export interface Plugin {
   id: string;
   name: string;
@@ -37,7 +43,8 @@ export interface Plugin {
   status: 'available' | 'installed' | 'active'; // available=store, installed=library, active=running
   category: 'analytics' | 'security' | 'integration' | 'utility';
   price: number; // Custo mensal sugerido para repasse
-  allowed_plans: string[]; // IDs dos planos que têm acesso a este plugin (NOVO)
+  allowed_plans: string[]; // IDs dos planos que têm acesso a este plugin
+  config?: PluginConfig; // NOVO: Armazena prompts customizados
 }
 
 // Tabela 8: Payments (Gestão Financeira Manual)

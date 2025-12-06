@@ -324,6 +324,18 @@ router.patch('/plugins/:id/status', async (req, res) => {
     }
 });
 
+// NEW: Endpoint para atualizar configuração do plugin (Prompt)
+router.patch('/plugins/:id/config', async (req, res) => {
+    const { id } = req.params;
+    const { config } = req.body;
+    try {
+        await query('UPDATE plugins SET config = $1 WHERE id = $2', [JSON.stringify(config), id]);
+        res.json({ success: true });
+    } catch (err) {
+        res.status(500).json({ error: err.message });
+    }
+});
+
 router.post('/plugins/:id/toggle-plan', async (req, res) => {
     const { id } = req.params;
     const { plan_id } = req.body;

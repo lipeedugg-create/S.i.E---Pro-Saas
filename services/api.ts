@@ -1,4 +1,4 @@
-import { User, Subscription, Payment, RequestLog, MasterItem, MonitoringConfig, Plugin, Plan, CityAdminData } from '../types';
+import { User, Subscription, Payment, RequestLog, MasterItem, MonitoringConfig, Plugin, Plan, CityAdminData, PluginConfig } from '../types';
 
 /**
  * CLIENTE API DE PRODUÇÃO
@@ -126,6 +126,14 @@ export const api = {
       method: 'PATCH',
       headers: getHeaders(),
       body: JSON.stringify({ status })
+    });
+  },
+
+  updatePluginConfig: async (id: string, config: PluginConfig): Promise<void> => {
+    await fetch(`${API_URL}/admin/plugins/${id}/config`, {
+      method: 'PATCH',
+      headers: getHeaders(),
+      body: JSON.stringify({ config })
     });
   },
 

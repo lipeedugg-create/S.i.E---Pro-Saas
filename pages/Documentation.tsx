@@ -18,11 +18,11 @@ export const Documentation: React.FC<DocumentationProps> = ({ onClose }) => {
       <div className="bg-[#0d1117] p-4 overflow-x-auto relative group">
         <button 
             onClick={() => navigator.clipboard.writeText(code)}
-            className="absolute top-2 right-2 bg-slate-800 text-slate-400 text-xs px-2 py-1 rounded opacity-0 group-hover:opacity-100 transition-opacity"
+            className="absolute top-2 right-2 bg-slate-800 text-slate-400 text-xs px-2 py-1 rounded opacity-0 group-hover:opacity-100 transition-opacity border border-slate-700 hover:bg-slate-700"
         >
-            Copiar
+            Copiar Comando
         </button>
-        <pre className="font-mono text-sm leading-relaxed text-slate-300">
+        <pre className="font-mono text-xs md:text-sm leading-relaxed text-emerald-300 whitespace-pre-wrap">
           <code>{code.trim()}</code>
         </pre>
       </div>
@@ -37,7 +37,7 @@ export const Documentation: React.FC<DocumentationProps> = ({ onClose }) => {
            <div className="w-8 h-8 bg-blue-600 rounded flex items-center justify-center font-bold text-white text-xs">DOC</div>
            <div>
              <h1 className="text-white font-bold text-sm leading-tight">S.I.E. PRO - Documentação Técnica</h1>
-             <p className="text-[10px] text-slate-500 font-mono">v4.1 - Robust Migration Schema & AI Core</p>
+             <p className="text-[10px] text-slate-500 font-mono">v4.2 - Custom Plugin Prompts</p>
            </div>
         </div>
         <div className="flex items-center gap-4">
@@ -73,16 +73,22 @@ export const Documentation: React.FC<DocumentationProps> = ({ onClose }) => {
           {activeTab === 'database' && (
             <div className="animate-fade-in space-y-6">
               <div className="bg-slate-900 p-6 rounded-lg border border-slate-700 mb-6">
-                <h2 className="text-2xl font-bold text-white mb-2">💾 Database Schema v4.1 (Migration Safe)</h2>
-                <p className="text-slate-400">
-                    Este script é <strong>idempotente</strong>. Ele cria tabelas se não existirem e adiciona colunas novas (como <code>status</code> e <code>phone</code>) em tabelas legadas sem perder dados.
+                <h2 className="text-2xl font-bold text-white mb-2">💾 Database Deploy (v4.2 Update)</h2>
+                <p className="text-slate-400 mb-4">
+                    Adicionamos suporte para configuração dinâmica de Prompts nos plugins (JSONB). Copie e execute para migrar.
                 </p>
+                <div className="flex items-center gap-2 text-xs text-yellow-500 bg-yellow-900/20 p-3 rounded border border-yellow-900/50">
+                    <span>⚠️</span>
+                    <strong>Atenção:</strong> Este comando contém credenciais de produção.
+                </div>
               </div>
 
               <CopyBlock 
-                title="init_schema_v4_1_robust.sql" 
-                lang="sql"
+                title="TERMINAL SSH (Paste & Enter)" 
+                lang="bash"
                 code={`
+psql "postgres://sie301:Gegerminal180@127.0.0.1:5432/sie301" << 'EOF'
+
 -- Habilitar extensão para UUIDs
 CREATE EXTENSION IF NOT EXISTS "pgcrypto";
 
@@ -95,8 +101,7 @@ CREATE TABLE IF NOT EXISTS users (
     role VARCHAR(50) DEFAULT 'client' CHECK (role IN ('admin', 'client')),
     created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
 );
-
--- 1.1 MIGRAÇÃO: Adicionar colunas novas se não existirem (Safe Update)
+-- Migração V4.1
 ALTER TABLE users ADD COLUMN IF NOT EXISTS status VARCHAR(20) DEFAULT 'active' CHECK (status IN ('active', 'inactive', 'suspended'));
 ALTER TABLE users ADD COLUMN IF NOT EXISTS phone VARCHAR(50);
 ALTER TABLE users ADD COLUMN IF NOT EXISTS last_login TIMESTAMP WITH TIME ZONE;
@@ -120,6 +125,8 @@ CREATE TABLE IF NOT EXISTS plugins (
     category VARCHAR(50) DEFAULT 'utility',
     price DECIMAL(10, 2) DEFAULT 0.00
 );
+-- Migração V4.2 (Configuração de Prompt)
+ALTER TABLE plugins ADD COLUMN IF NOT EXISTS config JSONB DEFAULT '{}';
 
 -- 4. RELAÇÃO PLANOS <> PLUGINS
 CREATE TABLE IF NOT EXISTS plan_plugins (
@@ -184,7 +191,7 @@ CREATE TABLE IF NOT EXISTS requests_log (
     timestamp TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
 );
 
--- SEED DATA (Apenas se não existir conflito)
+-- SEED DATA
 INSERT INTO plans (id, name, price, description) VALUES
 ('starter', 'Starter Plan', 99.00, 'Monitoramento básico para pequenas operações.'),
 ('pro', 'Enterprise Pro', 299.00, 'IA Avançada, Tempo Real e Suporte Prioritário.')
@@ -194,11 +201,11 @@ INSERT INTO plugins (id, name, description, icon, status, category) VALUES
 ('a0eebc99-9c0b-4ef8-bb6d-6bb9bd380a99', 'Raio-X Administrativo', 'Ferramenta de transparência para mapeamento de cargos públicos.', '🏛️', 'active', 'utility')
 ON CONFLICT (id) DO NOTHING;
 
--- Usuário Admin (Senha: 123456)
--- IMPORTANTE: Garante que os campos novos tenham valor na inserção
 INSERT INTO users (id, name, email, password_hash, role, status, phone) VALUES
 ('a0eebc99-9c0b-4ef8-bb6d-6bb9bd380a11', 'Admin Master', 'admin@sie.pro', '$2a$10$X7Xk5y5n5j5k5l5m5n5o5p5q5r5s5t5u5v5w5x5y5z5A5B5C5D5E', 'admin', 'active', '+5511999999999')
-ON CONFLICT (id) DO UPDATE SET status = 'active'; 
+ON CONFLICT (id) DO UPDATE SET status = 'active';
+
+EOF
                 `}
               />
             </div>
@@ -208,53 +215,24 @@ ON CONFLICT (id) DO UPDATE SET status = 'active';
           {activeTab === 'ai-core' && (
              <div className="animate-fade-in space-y-6">
                 <div className="bg-slate-900 p-6 rounded-lg border border-slate-700">
-                    <h2 className="text-2xl font-bold text-white mb-2">🧠 Gemini 2.5 Integration</h2>
+                    <h2 className="text-2xl font-bold text-white mb-2">🧠 Custom Plugin Prompts</h2>
                     <p className="text-slate-400">
-                        O serviço <code>aiSearchService.js</code> utiliza <strong>Prompt Engineering Avançado</strong> para extrair dados estruturados (JSON) de informações não estruturadas sobre governança pública.
+                        O serviço agora busca o prompt do banco de dados (tabela <code>plugins.config</code>). Isso permite ajustar o comportamento da IA sem redeploy.
                     </p>
                 </div>
-
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                   <div className="bg-slate-800 p-5 rounded-lg border border-slate-700">
-                      <h3 className="text-blue-400 font-bold mb-2">Parâmetros do Modelo</h3>
-                      <ul className="text-sm text-slate-400 space-y-2">
-                          <li><strong>Model:</strong> <code>gemini-2.5-flash</code></li>
-                          <li><strong>Temperature:</strong> <code>0.1</code> (Alta determinística)</li>
-                          <li><strong>Response Format:</strong> <code>JSON Schema Enforcement</code></li>
-                      </ul>
-                   </div>
-                   <div className="bg-slate-800 p-5 rounded-lg border border-slate-700">
-                       <h3 className="text-emerald-400 font-bold mb-2">Token Cost Tracking</h3>
-                       <p className="text-xs text-slate-400">
-                           Cada requisição é auditada em <code>requests_log</code>.
-                           <br/>Input: <strong>$0.10 / 1M tokens</strong>
-                           <br/>Output: <strong>$0.30 / 1M tokens</strong>
-                       </p>
-                   </div>
-                </div>
-
+                
                 <CopyBlock 
-                    title="services/aiSearchService.js (Atual Prompt)"
+                    title="services/aiSearchService.js (Dynamic Logic)"
                     lang="javascript"
                     code={`
-const prompt = \`
-    Você é o SISTEMA SIE (Strategic Intelligence Enterprise).
-    Sua tarefa é gerar um relatório de transparência pública sobre a administração da cidade de: \${city} (Brasil).
+// Busca configuração do banco
+const pluginConfig = await getPluginConfigFromDB('a0eebc99...');
 
-    DADOS NECESSÁRIOS:
-    1. Prefeito Atual (Nome, Partido, Cargos Anteriores na carreira)
-    2. Vice-Prefeito (Nome, Partido)
-    3. Vereadores (Liste pelo menos 5 principais ou mesa diretora...)
-    4. Funcionários Públicos Chave (Secretários Municipais ex: Saúde, Educação...)
+const finalPrompt = \`
+  \${pluginConfig.systemPrompt || DEFAULT_PROMPT}
 
-    FORMATO DE RESPOSTA (JSON OBRIGATÓRIO):
-    {
-        "city": "\${city}",
-        "mayor": { "name": "...", "role": "Prefeito", "party": "...", "past_roles": ["..."] },
-        "councilors": [ ... ],
-        "key_servants": [ ... ],
-        "last_updated": "Data atual"
-    }
+  RESTRIÇÕES (NEGATIVE PROMPT):
+  \${pluginConfig.negativePrompt || ''}
 \`;
                     `}
                 />
@@ -264,53 +242,35 @@ const prompt = \`
           {/* TAB: BACKEND */}
           {activeTab === 'backend' && (
              <div className="animate-fade-in space-y-6">
-                <h2 className="text-2xl font-bold text-white mb-4">Backend Architecture (Node.js)</h2>
+                <h2 className="text-2xl font-bold text-white mb-4">Backend Architecture</h2>
                 <div className="bg-slate-800 p-5 rounded-lg border border-slate-700">
-                    <h3 className="text-white font-bold mb-4">Endpoints Críticos</h3>
+                    <h3 className="text-white font-bold mb-4">Novos Endpoints (v4.2)</h3>
                     <div className="space-y-4">
                         <div className="flex gap-3 items-start">
-                            <span className="bg-purple-900/30 text-purple-400 px-2 py-1 rounded text-xs font-mono border border-purple-900/50">POST /api/admin/users/:id/impersonate</span>
-                            <p className="text-sm text-slate-400">Gera um JWT temporário com scope do usuário alvo, permitindo ao admin "ver o que o cliente vê".</p>
-                        </div>
-                        <div className="flex gap-3 items-start">
-                            <span className="bg-green-900/30 text-green-400 px-2 py-1 rounded text-xs font-mono border border-green-900/50">POST /api/monitoring/trigger</span>
-                            <p className="text-sm text-slate-400">Disparado por Cron Job. Varre todas as configs ativas e chama o Gemini para análise de sentimento.</p>
+                            <span className="bg-orange-900/30 text-orange-400 px-2 py-1 rounded text-xs font-mono border border-orange-900/50">PATCH /api/admin/plugins/:id/config</span>
+                            <p className="text-sm text-slate-400">Atualiza o Prompt de Sistema e o Prompt Negativo de um plugin específico.</p>
                         </div>
                     </div>
                 </div>
              </div>
           )}
 
-          {/* TAB: FRONTEND */}
+          {/* ... Outras abas mantidas iguais ... */}
           {activeTab === 'frontend' && (
              <div className="animate-fade-in space-y-6">
-                <h2 className="text-2xl font-bold text-white mb-4">Frontend Architecture (React 19)</h2>
-                
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                    <div className="bg-slate-800 p-4 rounded border border-slate-700">
-                        <h4 className="text-white font-bold mb-2">PublicAdminSearch.tsx</h4>
-                        <p className="text-sm text-slate-400">Implementa padrão de <strong>Skeleton Loading</strong> enquanto aguarda a resposta da IA (que pode levar 5-10s). Inclui exportação de JSON no cliente.</p>
-                    </div>
-                    <div className="bg-slate-800 p-4 rounded border border-slate-700">
-                        <h4 className="text-white font-bold mb-2">UserModal.tsx</h4>
-                        <p className="text-sm text-slate-400">Refatorado para usar <strong>Abas (Tabs)</strong>, separando dados cadastrais, financeiros e zona de perigo (bloqueio de conta).</p>
-                    </div>
-                </div>
+                <h2 className="text-2xl font-bold text-white mb-4">Frontend Architecture</h2>
+                 <p className="text-slate-400">Adicionado <code>PluginConfigModal.tsx</code> para edição visual dos prompts.</p>
              </div>
           )}
 
-          {/* TAB: DEPLOY */}
           {activeTab === 'deploy' && (
              <div className="animate-fade-in space-y-6">
               <h2 className="text-2xl font-bold text-white mb-6">Deploy Instructions</h2>
               <div className="bg-emerald-950/20 border border-emerald-800 p-6 rounded-lg mb-8">
-                  <h3 className="text-emerald-400 font-bold text-lg mb-4">Atualização de Versão (v4.0 ➜ v4.1)</h3>
+                  <h3 className="text-emerald-400 font-bold text-lg mb-4">Atualização v4.2</h3>
                   <p className="text-slate-300 text-sm mb-4">
-                      Se você já tem o banco rodando, execute o script SQL da aba "Database". Ele detectará automaticamente colunas ausentes (`status`, `phone`) e as criará, preservando seus dados existentes.
+                      Execute o script da aba <strong>DATABASE</strong> para adicionar a coluna <code>config</code> na tabela <code>plugins</code>.
                   </p>
-                  <div className="bg-black p-3 rounded font-mono text-xs text-green-400 border border-slate-800">
-                      psql -h localhost -U postgres -d sie_pro -f init_schema_v4_1_robust.sql
-                  </div>
               </div>
             </div>
           )}

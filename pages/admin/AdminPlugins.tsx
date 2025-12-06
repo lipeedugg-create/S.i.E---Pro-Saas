@@ -1,11 +1,15 @@
 import React, { useState, useEffect } from 'react';
 import { api } from '../../services/api';
 import { Plugin } from '../../types';
+import { PluginConfigModal } from '../../components/PluginConfigModal';
 
 export const AdminPlugins: React.FC = () => {
   const [plugins, setPlugins] = useState<Plugin[]>([]);
   const [filter, setFilter] = useState('all');
   const [loading, setLoading] = useState(true);
+  
+  // State para modal de configuração
+  const [configPlugin, setConfigPlugin] = useState<Plugin | null>(null);
 
   const loadPlugins = async () => {
     try {
@@ -117,6 +121,17 @@ export const AdminPlugins: React.FC = () => {
                                </button>
                           ) : (
                               <>
+                                  {/* Config Button (Only for installed/active) */}
+                                  <button
+                                      onClick={() => setConfigPlugin(plugin)}
+                                      title="Configurar IA"
+                                      className="w-9 h-9 bg-purple-900/10 text-purple-400 border border-purple-900/30 rounded-lg flex items-center justify-center transition-colors hover:bg-purple-900/20"
+                                  >
+                                      <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                                      </svg>
+                                  </button>
+
                                   <button 
                                       onClick={() => handleToggleActive(plugin.id, plugin.status)}
                                       title={plugin.status === 'active' ? 'Desativar' : 'Ativar'}
@@ -146,6 +161,14 @@ export const AdminPlugins: React.FC = () => {
               </div>
           ))}
         </div>
+      )}
+
+      {configPlugin && (
+          <PluginConfigModal 
+             plugin={configPlugin} 
+             onClose={() => setConfigPlugin(null)} 
+             onSuccess={() => { setConfigPlugin(null); loadPlugins(); }} 
+          />
       )}
     </div>
   );
