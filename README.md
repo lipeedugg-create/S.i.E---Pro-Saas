@@ -18,6 +18,8 @@
 - Node.js v18+
 - PostgreSQL Database
 
+git pull origin main
+
 ### 2. Environment Variables
 Create a `.env` file in the root directory:
 
