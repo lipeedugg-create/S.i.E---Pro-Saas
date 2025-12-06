@@ -89,6 +89,16 @@ router.get('/subscriptions', async (req, res) => {
   }
 });
 
+// --- PLANS (NOVO) ---
+router.get('/plans', async (req, res) => {
+  try {
+    const result = await query('SELECT * FROM plans ORDER BY price ASC');
+    res.json(result.rows);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
 // --- PAYMENTS ---
 router.get('/payments', async (req, res) => {
   try {
@@ -147,7 +157,16 @@ router.get('/logs', async (req, res) => {
 // --- PLUGINS ---
 router.get('/plugins', async (req, res) => {
   try {
-    const result = await query('SELECT * FROM plugins ORDER BY name');
+    // Join para trazer o array de planos permitidos para cada plugin
+    const queryText = `
+        SELECT p.*, 
+               COALESCE(json_agg(pp.plan_id) FILTER (WHERE pp.plan_id IS NOT NULL), '[]') as allowed_plans
+        FROM plugins p
+        LEFT JOIN plan_plugins pp ON p.id = pp.plugin_id
+        GROUP BY p.id
+        ORDER BY p.name
+    `;
+    const result = await query(queryText);
     res.json(result.rows);
   } catch (err) {
     res.status(500).json({ error: err.message });
