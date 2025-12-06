@@ -3,14 +3,12 @@ import { User, Subscription, Payment, RequestLog, MasterItem, MonitoringConfig, 
 /**
  * CLIENTE API DE PRODUÇÃO
  * 
- * Estratégia de URL:
- * Em produção, o frontend é servido pelo mesmo servidor Node.js que hospeda a API.
- * Portanto, usamos um caminho relativo ('/api') como base.
- * Isso evita problemas de CORS e portas bloqueadas por Firewalls.
+ * Configuração Crítica para VPS:
+ * Usamos apenas '/api' (caminho relativo). 
+ * Isso permite que o navegador monte a URL correta automaticamente, 
+ * seja localhost, IP da VPS ou domínio final.
  */
-
-// Se VITE_API_URL não estiver definido no .env do build, usa '/api'
-const API_URL = (import.meta as any).env?.VITE_API_URL || '/api';
+const API_URL = '/api';
 
 const getHeaders = () => {
   const token = localStorage.getItem('token');
@@ -23,7 +21,7 @@ const getHeaders = () => {
 // Tratamento centralizado de erros
 const handleResponse = async (res: Response) => {
   if (!res.ok) {
-    // Tenta ler o JSON de erro, se falhar, usa texto padrão
+    // Tenta ler o JSON de erro, se falhar, usa texto padrão com status
     const error = await res.json().catch(() => ({ message: `Erro HTTP ${res.status}` }));
     throw new Error(error.message || `Erro na requisição: ${res.status}`);
   }

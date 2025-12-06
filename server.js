@@ -17,50 +17,42 @@ dotenv.config();
 const app = express();
 const PORT = process.env.PORT || 3000;
 
-// Configuração de CORS
+// Configuração de CORS - Permite tudo para evitar bloqueios simples, ideal ajustar em produção real com domínio fixo
 app.use(cors()); 
 app.use(express.json());
 
 // --- ROTAS DA API ---
-// Todas as rotas de dados começam com /api para não conflitar com o frontend
 app.use('/api/auth', authRoutes);
 app.use('/api/admin', adminRoutes);
 app.use('/api/client', clientRoutes);
 app.use('/api/monitoring', monitoringRoutes);
 
 // --- SERVIR FRONTEND (PRODUÇÃO) ---
-// Define __dirname para ES Modules
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
-
-// Caminho para a pasta de build do Vite
 const distPath = path.join(__dirname, 'dist');
 
-// Verifica se o build existe e serve os arquivos
+// Se a pasta 'dist' existir (após npm run build), serve o frontend
 if (fs.existsSync(distPath)) {
-    console.log(`📦 Servindo arquivos estáticos de: ${distPath}`);
+    console.log(`📦 Modo Produção: Servindo arquivos de ${distPath}`);
     
-    // Serve os arquivos estáticos (JS, CSS, Imagens)
     app.use(express.static(distPath));
     
-    // SPA Fallback: Qualquer rota que NÃO comece com /api retorna o index.html
-    // Isso permite que o React Router gerencie a navegação (ex: /admin-dashboard)
+    // SPA Fallback: Redireciona qualquer rota não-API para o index.html
     app.get('*', (req, res) => {
         if (req.path.startsWith('/api')) {
-            return res.status(404).json({ message: 'Endpoint da API não encontrado' });
+            return res.status(404).json({ message: 'Endpoint não encontrado' });
         }
         res.sendFile(path.join(distPath, 'index.html'));
     });
 } else {
-    // Fallback para desenvolvimento local sem build
     console.warn('⚠️  Pasta "dist" não encontrada. Execute "npm run build" para gerar o frontend.');
     app.get('/', (req, res) => {
-        res.send('Backend API is running. Frontend build not found.');
+        res.send('Backend rodando! Para ver o frontend, execute "npm run build".');
     });
 }
 
-// Inicia o Servidor
+// Inicia o Servidor escutando em todas as interfaces (0.0.0.0)
 app.listen(PORT, '0.0.0.0', () => {
-  console.log(`🚀 S.I.E. PRO Server rodando na porta ${PORT}`);
-  console.log(`📡 Ambiente: ${process.env.NODE_ENV || 'development'}`);
+  console.log(`🚀 Servidor S.I.E. PRO rodando na porta ${PORT}`);
 });
