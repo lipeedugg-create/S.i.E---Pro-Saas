@@ -1,4 +1,4 @@
-import { User, Subscription, Payment, RequestLog, MasterItem, MonitoringConfig, Plugin, Plan } from '../types';
+import { User, Subscription, Payment, RequestLog, MasterItem, MonitoringConfig, Plugin, Plan, CityAdminData } from '../types';
 
 /**
  * CLIENTE API DE PRODUÇÃO
@@ -146,5 +146,15 @@ export const api = {
       headers: getHeaders(),
       body: JSON.stringify(config)
     });
+  },
+
+  // --- TOOLS (PLUGINS) ---
+  searchPublicAdmin: async (city: string): Promise<CityAdminData> => {
+    const res = await fetch(`${API_URL}/client/tools/public-admin-search`, {
+        method: 'POST',
+        headers: getHeaders(),
+        body: JSON.stringify({ city })
+    });
+    return handleResponse(res);
   }
 };

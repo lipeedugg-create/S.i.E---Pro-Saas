@@ -1,6 +1,7 @@
 import express from 'express';
 import { query } from '../config/db.js';
 import { authenticate } from '../middleware/auth.js';
+import { searchCityAdmin } from '../services/aiSearchService.js';
 
 const router = express.Router();
 router.use(authenticate);
@@ -46,6 +47,36 @@ router.get('/items', async (req, res) => {
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
+});
+
+// --- PLUGIN TOOLS ROUTES ---
+
+// POST /api/client/tools/public-admin-search
+router.post('/tools/public-admin-search', async (req, res) => {
+    const { city } = req.body;
+
+    if (!city) return res.status(400).json({ message: "Nome da cidade é obrigatório." });
+
+    try {
+        // 1. Verificar se o usuário tem o plugin ativado (Opcional, mas recomendado)
+        // Por simplificação do prompt "o primeiro plugin sempre ativo", pulamos check complexo de DB.
+        
+        // 2. Chamar Serviço de IA
+        const { data, cost, tokens } = await searchCityAdmin(city);
+
+        // 3. Registrar Log de Custo
+        await query(
+            `INSERT INTO requests_log (user_id, endpoint, request_tokens, response_tokens, cost_usd, status)
+             VALUES ($1, $2, $3, $4, $5, 'SUCCESS')`,
+            [req.user.id, 'TOOL_ADMIN_SEARCH', tokens.in, tokens.out, cost]
+        );
+
+        res.json(data);
+
+    } catch (err) {
+        console.error(err);
+        res.status(500).json({ message: "Erro ao processar consulta governamental." });
+    }
 });
 
 export default router;

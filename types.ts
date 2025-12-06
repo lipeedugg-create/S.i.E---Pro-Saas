@@ -78,3 +78,27 @@ export interface MonitoringConfig {
   frequency: 'daily' | 'hourly';
   is_active: boolean;
 }
+
+// --- NEW: Public Administration Search Types ---
+export interface Politician {
+  name: string;
+  role: string; // Prefeito, Vereador, etc.
+  party: string;
+  past_roles: string[]; // Histórico
+}
+
+export interface PublicServant {
+  name: string;
+  department: string; // Lotação
+  role_type: string; // Vínculo (Comissionado, Efetivo)
+  estimated_salary: string;
+}
+
+export interface CityAdminData {
+  city: string;
+  mayor: Politician;
+  vice_mayor: Politician;
+  councilors: Politician[];
+  key_servants: PublicServant[];
+  last_updated: string;
+}

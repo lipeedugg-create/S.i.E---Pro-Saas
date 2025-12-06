@@ -7,10 +7,11 @@ import { Sidebar } from './components/Sidebar';
 import { AdminDashboard } from './pages/admin/AdminDashboard';
 import { AdminLogs } from './pages/admin/AdminLogs';
 import { AdminAddons } from './pages/admin/AdminAddons';
-import { AdminPlugins } from './pages/admin/AdminPlugins'; // Nova Página
+import { AdminPlugins } from './pages/admin/AdminPlugins'; 
 import { AdminUsers } from './pages/admin/AdminUsers';
 import { ClientDashboard } from './pages/client/ClientDashboard';
 import { ClientConfig } from './pages/client/ClientConfig';
+import { PublicAdminSearch } from './pages/client/PublicAdminSearch'; // Nova Importação
 import { User } from './types';
 
 export default function App() {
@@ -42,20 +43,26 @@ export default function App() {
 
   const renderContent = () => {
     switch (activePage) {
+      // Admin Routes
       case 'admin-dashboard':
         return <AdminDashboard currentAdminId={currentUser.id} />;
       case 'admin-logs':
         return <AdminLogs />;
       case 'admin-addons':
         return <AdminAddons />;
-      case 'admin-plugins': // Nova Rota
+      case 'admin-plugins': 
         return <AdminPlugins />;
       case 'admin-users':
         return <AdminUsers onLogin={handleLogin} />;
+      
+      // Client Routes
       case 'client-dashboard':
         return <ClientDashboard user={currentUser} />;
       case 'client-config':
         return <ClientConfig user={currentUser} />;
+      case 'client-public-search': // Nova Rota Mapeada
+        return <PublicAdminSearch />;
+      
       default:
         return <div className="p-8 text-white">Página não encontrada</div>;
     }
