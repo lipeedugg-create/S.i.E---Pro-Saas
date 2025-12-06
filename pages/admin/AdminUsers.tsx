@@ -246,10 +246,13 @@ export const AdminUsers: React.FC<AdminUsersProps> = ({ onLogin }) => {
                              {user.role !== 'admin' && (
                                  <button
                                     onClick={() => handleImpersonate(user)}
-                                    className="p-2 text-slate-400 hover:text-white hover:bg-slate-700 rounded-lg transition-colors"
-                                    title="Login como Usuário"
+                                    className="bg-amber-900/20 hover:bg-amber-900/40 text-amber-500 hover:text-amber-400 text-xs font-bold px-3 py-1.5 rounded transition-all border border-amber-900/50 hover:border-amber-500 flex items-center gap-1.5"
+                                    title="Acessar conta do usuário"
                                  >
-                                    <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 16l-4-4m0 0l4-4m-4 4h14m-5 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h7a3 3 0 013 3v1" /></svg>
+                                    <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 16l-4-4m0 0l4-4m-4 4h14m-5 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h7a3 3 0 013 3v1" />
+                                    </svg>
+                                    Login
                                  </button>
                              )}
                              <button 
