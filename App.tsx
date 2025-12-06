@@ -24,26 +24,34 @@ export default function App() {
 
   // Restore Session on Load
   useEffect(() => {
-    const token = localStorage.getItem('token');
-    if (token) {
-        api.validateSession()
-            .then(user => {
-                setCurrentUser(user);
-                // Se estiver na home ou login, redireciona para dashboard
-                if (activePage === 'login' || activePage === 'homepage') {
-                     setActivePage(user.role === 'admin' ? 'admin-dashboard' : 'client-dashboard');
-                }
-            })
-            .catch(() => {
+    const checkSession = async () => {
+        const token = localStorage.getItem('token');
+        if (!token) {
+            setIsAuthLoading(false);
+            return;
+        }
+
+        try {
+            const user = await api.validateSession();
+            setCurrentUser(user);
+            // Se estiver na home ou login, redireciona para dashboard correto
+            if (activePage === 'login' || activePage === 'homepage') {
+                 setActivePage(user.role === 'admin' ? 'admin-dashboard' : 'client-dashboard');
+            }
+        } catch (error: any) {
+            console.error("Falha na validação de sessão:", error.message);
+            // CRITICAL FIX: Apenas desloga se for erro de autenticação (401/403)
+            // Erros 500 ou de conexão não devem deslogar o usuário imediatamente.
+            if (error.message.includes('Sessão expirada') || error.message.includes('401') || error.message.includes('403')) {
                 localStorage.removeItem('token');
                 setCurrentUser(null);
-            })
-            .finally(() => {
-                setIsAuthLoading(false);
-            });
-    } else {
-        setIsAuthLoading(false);
-    }
+            }
+        } finally {
+            setIsAuthLoading(false);
+        }
+    };
+
+    checkSession();
   }, []);
 
   const handleLogin = (user: User) => {
@@ -61,8 +69,8 @@ export default function App() {
       return (
           <div className="h-screen w-screen bg-slate-950 flex items-center justify-center">
               <div className="flex flex-col items-center gap-4">
-                  <span className="w-10 h-10 border-4 border-blue-600 border-t-transparent rounded-full animate-spin"></span>
-                  <span className="text-slate-500 text-sm font-bold tracking-widest uppercase">Iniciando S.I.E. PRO...</span>
+                  <div className="w-12 h-12 border-4 border-blue-600 border-t-transparent rounded-full animate-spin"></div>
+                  <span className="text-slate-400 text-sm font-bold tracking-widest uppercase animate-pulse">Conectando S.I.E. PRO...</span>
               </div>
           </div>
       );

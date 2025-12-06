@@ -5,14 +5,13 @@ export const authenticate = (req, res, next) => {
   const authHeader = req.headers.authorization;
   
   if (!authHeader) {
-    console.log(`⛔ Auth Failed [${req.path}]: Token não fornecido no header.`);
+    // console.log(`⛔ Auth Failed [${req.path}]: Token não fornecido.`);
     return res.status(401).json({ message: 'Token não fornecido' });
   }
 
   const parts = authHeader.split(' ');
   
   if (parts.length !== 2) {
-     console.log(`⛔ Auth Failed [${req.path}]: Formato do header inválido.`);
      return res.status(401).json({ message: 'Token erro de formato' });
   }
 
@@ -20,11 +19,11 @@ export const authenticate = (req, res, next) => {
 
   try {
     // Valida usando a MESMA chave exportada pelo db.js
-    const decoded = jwt.verify(token, JWT_SECRET);
+    // clockTolerance: 5 segundos para permitir pequenas diferenças de relógio do servidor
+    const decoded = jwt.verify(token, JWT_SECRET, { clockTolerance: 5 });
     req.user = decoded;
     next();
   } catch (error) {
-    // Log detalhado para entender por que o usuário está sendo deslogado
     console.error(`⛔ Auth Failed [${req.path}]: ${error.message}`); 
     return res.status(403).json({ message: 'Token inválido ou expirado' });
   }

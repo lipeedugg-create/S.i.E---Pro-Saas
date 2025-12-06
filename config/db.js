@@ -8,6 +8,8 @@ dotenv.config();
 // Exportamos a chave daqui para garantir que Login e Middleware usem O MESMO valor sempre.
 export const JWT_SECRET = process.env.JWT_SECRET || 'sie-secret-key-change-in-prod';
 
+console.log(`🔌 Inicializando Banco de Dados... Host: ${process.env.DB_HOST || 'localhost'}`);
+
 const { Pool } = pg;
 
 // Monta a string de conexão baseada no ambiente
@@ -31,6 +33,12 @@ const pool = new Pool({
   connectionString: connectionString,
   ssl: isCloudConnection ? { rejectUnauthorized: false } : false,
   connectionTimeoutMillis: 10000,
+  idleTimeoutMillis: 30000,
+});
+
+pool.on('connect', () => {
+  // Log silencioso de sucesso para não poluir, mas útil para debug se descomentar
+  // console.log('✅ DB Connected');
 });
 
 pool.on('error', (err) => {
@@ -41,7 +49,7 @@ export const query = async (text, params) => {
     try {
         return await pool.query(text, params);
     } catch (error) {
-        console.error(`❌ Erro na Query SQL: ${error.message}`);
+        console.error(`❌ Erro na Query SQL [${text.substring(0, 50)}...]: ${error.message}`);
         throw error;
     }
 };
