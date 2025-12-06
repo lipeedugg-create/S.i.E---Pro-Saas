@@ -30,15 +30,12 @@ export const AdminLogs: React.FC = () => {
   const handleTriggerCycle = async () => {
     setIsRunning(true);
     try {
-      // Chama o endpoint real /api/monitoring/trigger
       await api.triggerCollection('SECRET_CRON_KEY'); 
-      
-      // Aguarda um momento para os logs serem processados pelo backend
       setTimeout(() => {
         fetchLogs();
       }, 2000);
     } catch (e) {
-      alert('Erro ao disparar ciclo de monitoramento. Verifique a chave CRON e o console.');
+      alert('Erro ao disparar ciclo de monitoramento.');
       console.error(e);
     } finally {
       setIsRunning(false);
@@ -47,7 +44,7 @@ export const AdminLogs: React.FC = () => {
 
   const filteredLogs = logs.filter(log => 
     log.endpoint.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    log.user_id.toLowerCase().includes(searchTerm.toLowerCase()) ||
+    (log.user_id && log.user_id.toLowerCase().includes(searchTerm.toLowerCase())) ||
     log.status.toLowerCase().includes(searchTerm.toLowerCase())
   );
 
@@ -58,8 +55,8 @@ export const AdminLogs: React.FC = () => {
           <h2 className="text-2xl font-bold text-white">Auditoria & Custos IA</h2>
           <p className="text-slate-500">Rastreamento de consumo Gemini API (Produção).</p>
         </div>
-        <div className="bg-slate-800 border border-slate-700 px-6 py-3 rounded-xl text-right">
-          <p className="text-xs text-slate-400 mb-1 uppercase tracking-wider">Custo Total (Período)</p>
+        <div className="bg-slate-800 border border-slate-700 px-6 py-3 rounded-xl text-right shadow-lg">
+          <p className="text-[10px] text-slate-400 mb-1 uppercase tracking-wider font-bold">Custo Total (Período)</p>
           <p className="text-2xl font-mono font-bold text-white">${totalCost.toFixed(6)}</p>
         </div>
       </div>
@@ -68,17 +65,17 @@ export const AdminLogs: React.FC = () => {
         <button 
           onClick={handleTriggerCycle}
           disabled={isRunning}
-          className={`px-4 py-2.5 rounded-lg font-medium transition-all shadow-lg flex items-center gap-2 ${
+          className={`px-4 py-2.5 rounded-lg font-bold text-sm transition-all shadow-lg flex items-center gap-2 ${
             isRunning 
             ? 'bg-slate-800 text-slate-500 cursor-wait border border-slate-700' 
             : 'bg-emerald-600 text-white hover:bg-emerald-700 shadow-emerald-900/20'
           }`}
         >
           {isRunning ? (
-             <span className="flex items-center gap-2">
+             <>
                <span className="animate-spin h-4 w-4 border-2 border-slate-500 border-t-white rounded-full"></span>
                Processando API...
-             </span>
+             </>
           ) : '⚡ Disparar Coleta (Live)'}
         </button>
 
@@ -90,24 +87,24 @@ export const AdminLogs: React.FC = () => {
            </div>
            <input 
              type="text"
-             placeholder="Filtrar logs..."
+             placeholder="Buscar endpoint, status ou ID..."
              value={searchTerm}
              onChange={(e) => setSearchTerm(e.target.value)}
-             className="w-full bg-slate-950 border border-slate-700 text-sm rounded-lg pl-9 pr-3 py-2.5 text-slate-300 focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500 transition-colors"
+             className="w-full bg-slate-950 border border-slate-700 text-sm rounded-lg pl-9 pr-3 py-2.5 text-slate-300 focus:outline-none focus:border-blue-500 transition-colors"
            />
         </div>
       </div>
 
       <div className="bg-slate-800 rounded-xl border border-slate-700 overflow-hidden shadow-xl">
-        <table className="w-full text-left text-sm text-slate-400">
-          <thead className="bg-slate-950 text-slate-500 font-semibold uppercase text-xs border-b border-slate-700">
+        <table className="w-full text-left text-sm text-slate-300">
+          <thead className="bg-slate-950 text-slate-400 font-semibold uppercase text-xs border-b border-slate-700">
             <tr>
-              <th className="px-6 py-3">Timestamp</th>
-              <th className="px-6 py-3">User ID</th>
-              <th className="px-6 py-3">Endpoint</th>
-              <th className="px-6 py-3 text-center">Tokens (In / Out)</th>
-              <th className="px-6 py-3 text-right">Custo (USD)</th>
-              <th className="px-6 py-3 text-center">Status</th>
+              <th className="px-6 py-4">Timestamp</th>
+              <th className="px-6 py-4">User ID</th>
+              <th className="px-6 py-4">Endpoint</th>
+              <th className="px-6 py-4 text-center">Tokens (In / Out)</th>
+              <th className="px-6 py-4 text-right">Custo (USD)</th>
+              <th className="px-6 py-4 text-center">Status</th>
             </tr>
           </thead>
           <tbody className="divide-y divide-slate-700/50">
@@ -119,18 +116,28 @@ export const AdminLogs: React.FC = () => {
                </tr>
             ) : (
               filteredLogs.map(log => (
-                <tr key={log.id} className="hover:bg-slate-700/20 transition-colors">
-                  <td className="px-6 py-3 font-mono text-xs text-slate-500">{new Date(log.timestamp).toLocaleTimeString()}</td>
-                  <td className="px-6 py-3 font-mono text-xs text-blue-400">{log.user_id ? log.user_id.substring(0, 8) : 'SYSTEM'}...</td>
-                  <td className="px-6 py-3 font-medium text-slate-300">{log.endpoint}</td>
-                  <td className="px-6 py-3 text-center text-xs">
-                    <span className="text-slate-400">{log.request_tokens}</span> <span className="text-slate-600 px-1">/</span> <span className="text-blue-400">{log.response_tokens}</span>
+                <tr key={log.id} className="hover:bg-slate-700/30 transition-colors">
+                  <td className="px-6 py-4 font-mono text-xs text-slate-500">{new Date(log.timestamp).toLocaleTimeString()}</td>
+                  <td className="px-6 py-4 font-mono text-xs text-blue-400">
+                      {log.user_id ? (
+                          <span title={log.user_id}>{log.user_id.substring(0, 8)}...</span>
+                      ) : <span className="text-slate-600">SYSTEM</span>}
                   </td>
-                  <td className="px-6 py-3 text-right font-mono font-medium text-emerald-400">
-                    ${Number(log.cost_usd).toFixed(8)}
+                  <td className="px-6 py-4">
+                      <span className="bg-slate-900 border border-slate-700 px-2 py-1 rounded text-xs font-mono text-slate-300">
+                          {log.endpoint}
+                      </span>
                   </td>
-                  <td className="px-6 py-3 text-center">
-                    <span className={`inline-flex px-2 py-0.5 rounded text-[10px] font-bold border ${
+                  <td className="px-6 py-4 text-center text-xs">
+                    <span className="text-slate-400">{log.request_tokens}</span> 
+                    <span className="text-slate-600 px-1">/</span> 
+                    <span className="text-blue-400">{log.response_tokens}</span>
+                  </td>
+                  <td className="px-6 py-4 text-right font-mono font-medium text-emerald-400">
+                    ${Number(log.cost_usd).toFixed(6)}
+                  </td>
+                  <td className="px-6 py-4 text-center">
+                    <span className={`inline-flex px-2 py-1 rounded text-[10px] font-bold uppercase tracking-wider border ${
                       ['SUCCESS', 'SUCESSO'].includes(log.status)
                       ? 'bg-green-900/20 text-green-400 border-green-900/50' 
                       : 'bg-red-900/20 text-red-400 border-red-900/50'

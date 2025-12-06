@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { User, Subscription } from '../types';
-import { api } from '../services/api'; // Substituição DB -> API
+import { api } from '../services/api'; 
 
 interface PaymentModalProps {
   user: User;
@@ -24,7 +24,6 @@ export const PaymentModal: React.FC<PaymentModalProps> = ({ user, subscription, 
     setIsSubmitting(true);
     
     try {
-      // POST para /api/admin/payments
       await api.recordPayment({
         subscription_id: subscription.id,
         amount: parseFloat(amount),
@@ -33,7 +32,7 @@ export const PaymentModal: React.FC<PaymentModalProps> = ({ user, subscription, 
         admin_recorded_by: adminId,
         notes: notes
       });
-      onSuccess(); // Fecha e recarrega a tabela pai
+      onSuccess(); 
     } catch (err: any) {
       console.error(err);
       setError(err.message || 'Erro ao processar pagamento.');
@@ -47,10 +46,10 @@ export const PaymentModal: React.FC<PaymentModalProps> = ({ user, subscription, 
   return (
     <div className="fixed inset-0 bg-slate-950/80 backdrop-blur-sm flex items-center justify-center z-50 p-4">
       <div className="bg-slate-900 rounded-xl border border-slate-800 shadow-2xl w-full max-w-md overflow-hidden transform transition-all scale-100">
-        <div className="bg-gradient-to-r from-blue-900 to-slate-900 px-6 py-4 border-b border-slate-800 flex justify-between items-center">
+        <div className="bg-gradient-to-r from-emerald-900/50 to-slate-900 px-6 py-4 border-b border-slate-800 flex justify-between items-center">
           <div>
             <h2 className="text-lg font-bold text-white">Registrar Pagamento</h2>
-            <p className="text-blue-200 text-xs mt-0.5">{user.name}</p>
+            <p className="text-emerald-400 text-xs mt-0.5 font-bold uppercase">{user.name}</p>
           </div>
           <button onClick={onClose} className="text-slate-400 hover:text-white transition-colors">✕</button>
         </div>
@@ -66,7 +65,7 @@ export const PaymentModal: React.FC<PaymentModalProps> = ({ user, subscription, 
                 step="0.01"
                 value={amount}
                 onChange={(e) => setAmount(e.target.value)}
-                className="w-full bg-slate-950 border border-slate-700 text-white rounded-lg pl-8 pr-4 py-2.5 focus:border-green-500 outline-none"
+                className="w-full bg-slate-950 border border-slate-700 text-white rounded-lg pl-8 pr-4 py-2.5 focus:border-emerald-500 outline-none"
                 placeholder="0.00"
               />
             </div>
@@ -108,7 +107,7 @@ export const PaymentModal: React.FC<PaymentModalProps> = ({ user, subscription, 
             <button
               type="submit"
               disabled={isSubmitting}
-              className="flex-1 px-4 py-2.5 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors shadow-lg shadow-green-900/20 disabled:opacity-70 flex justify-center items-center gap-2 text-sm font-bold"
+              className="flex-1 px-4 py-2.5 bg-emerald-600 text-white rounded-lg hover:bg-emerald-700 transition-colors shadow-lg shadow-emerald-900/20 disabled:opacity-70 flex justify-center items-center gap-2 text-sm font-bold"
             >
               {isSubmitting ? 'Processando...' : 'Confirmar Pagamento'}
             </button>

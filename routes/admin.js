@@ -13,7 +13,18 @@ router.use(authorizeAdmin);
 // --- USERS ---
 router.get('/users', async (req, res) => {
   try {
-    const result = await query('SELECT id, name, email, role, created_at FROM users ORDER BY created_at DESC');
+    // Tenta selecionar colunas novas, se falhar (schema antigo), fallback
+    // Em prod, faríamos migration. Aqui usamos try/catch ou COALESCE se já estiver no SQL init.
+    // O init SQL foi atualizado na documentação, mas para garantir compatibilidade com DBs já rodando:
+    const result = await query(`
+        SELECT id, name, email, role, created_at, 
+               status, phone, last_login 
+        FROM users 
+        ORDER BY created_at DESC
+    `).catch(async () => {
+         // Fallback se colunas não existirem (apenas para garantir que não crasha se não rodou migration)
+         return await query('SELECT id, name, email, role, created_at FROM users ORDER BY created_at DESC');
+    });
     res.json(result.rows);
   } catch (err) {
     res.status(500).json({ error: err.message });
@@ -21,19 +32,28 @@ router.get('/users', async (req, res) => {
 });
 
 router.post('/users', async (req, res) => {
-  const { name, email, role, password } = req.body;
+  const { name, email, role, password, phone, status } = req.body;
   
   try {
-    // Hash da senha fornecida ou padrão
     const pwd = password || '123456';
     const salt = await bcrypt.genSalt(10);
     const hash = await bcrypt.hash(pwd, salt);
+    
+    // Tenta inserir com novos campos, se falhar, insere básico
+    try {
+        const result = await query(
+          'INSERT INTO users (name, email, role, password_hash, phone, status) VALUES ($1, $2, $3, $4, $5, $6) RETURNING *',
+          [name, email, role, hash, phone, status || 'active']
+        );
+        res.json(result.rows[0]);
+    } catch(e) {
+        const result = await query(
+            'INSERT INTO users (name, email, role, password_hash) VALUES ($1, $2, $3, $4) RETURNING *',
+            [name, email, role, hash]
+        );
+        res.json(result.rows[0]);
+    }
 
-    const result = await query(
-      'INSERT INTO users (name, email, role, password_hash) VALUES ($1, $2, $3, $4) RETURNING id, name, email, role, created_at',
-      [name, email, role, hash]
-    );
-    res.json(result.rows[0]);
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
@@ -41,30 +61,67 @@ router.post('/users', async (req, res) => {
 
 router.put('/users/:id', async (req, res) => {
   const { id } = req.params;
-  const { name, email, role, password } = req.body;
+  const { name, email, role, password, phone, status } = req.body;
   
   try {
-    let queryText = 'UPDATE users SET name = $1, email = $2, role = $3';
-    let queryParams = [name, email, role];
+    let queryText = 'UPDATE users SET name = $1, email = $2, role = $3, phone = $4, status = $5';
+    let queryParams = [name, email, role, phone, status];
+    let paramIdx = 6;
 
-    // Se a senha foi enviada, faz o hash e inclui na query
     if (password && password.trim() !== '') {
         const salt = await bcrypt.genSalt(10);
         const hash = await bcrypt.hash(password, salt);
-        queryText += ', password_hash = $4 WHERE id = $5';
-        queryParams.push(hash, id);
-    } else {
-        queryText += ' WHERE id = $4';
-        queryParams.push(id);
+        queryText += `, password_hash = $${paramIdx++}`;
+        queryParams.push(hash);
     }
 
-    queryText += ' RETURNING id, name, email, role, created_at';
+    queryText += ` WHERE id = $${paramIdx}`;
+    queryParams.push(id);
+    queryText += ' RETURNING *';
 
-    const result = await query(queryText, queryParams);
-    res.json(result.rows[0]);
+    // Tratamento de erro se colunas não existirem no DB
+    try {
+        const result = await query(queryText, queryParams);
+        res.json(result.rows[0]);
+    } catch (e) {
+         // Fallback simples
+         if (password) {
+            await query('UPDATE users SET name=$1, email=$2, role=$3, password_hash=$4 WHERE id=$5', [name,email,role,queryParams[queryParams.length-2], id]);
+         } else {
+            await query('UPDATE users SET name=$1, email=$2, role=$3 WHERE id=$4', [name,email,role, id]);
+         }
+         res.json({ message: "Update parcial realizado (Schema antigo detectado)" });
+    }
+
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
+});
+
+router.patch('/users/:id/status', async (req, res) => {
+    const { id } = req.params;
+    const { status } = req.body;
+    try {
+        await query('UPDATE users SET status = $1 WHERE id = $2', [status, id]);
+        res.json({ success: true });
+    } catch (err) {
+        res.status(500).json({ error: err.message });
+    }
+});
+
+router.get('/users/:id/payments', async (req, res) => {
+    const { id } = req.params;
+    try {
+        // Pega subscription ID
+        const subRes = await query('SELECT id FROM subscriptions WHERE user_id = $1', [id]);
+        if(subRes.rows.length === 0) return res.json([]);
+
+        const subId = subRes.rows[0].id;
+        const payments = await query('SELECT * FROM payments WHERE subscription_id = $1 ORDER BY payment_date DESC', [subId]);
+        res.json(payments.rows);
+    } catch(err) {
+        res.status(500).json({ error: err.message });
+    }
 });
 
 // Impersonate User (Login As)
@@ -106,6 +163,17 @@ router.get('/subscriptions', async (req, res) => {
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
+});
+
+router.patch('/subscriptions/:id/date', async (req, res) => {
+    const { id } = req.params;
+    const { end_date } = req.body;
+    try {
+        await query('UPDATE subscriptions SET end_date = $1 WHERE id = $2', [end_date, id]);
+        res.json({ success: true });
+    } catch(err) {
+        res.status(500).json({ error: err.message });
+    }
 });
 
 // --- PLANS ---

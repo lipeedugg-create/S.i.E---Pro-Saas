@@ -16,12 +16,14 @@ Generates a JWT token for session management.
 *Headers required: `Authorization: Bearer <token>` (Admin Role)*
 
 ### User Management
-- **GET** `/admin/users` - List all users.
+- **GET** `/admin/users` - List all users (includes status, last_login).
 - **POST** `/admin/users` - Create a new user.
-  - Body: `{ "name": "...", "email": "...", "role": "client" }`
+  - Body: `{ "name": "...", "email": "...", "role": "client", "status": "active" }`
 - **PUT** `/admin/users/:id` - Update user details.
+- **PATCH** `/admin/users/:id/status` - **New:** Update account status (`active`, `inactive`).
+  - Body: `{ "status": "inactive" }`
 
-### 👤 Impersonation (New)
+### 👤 Impersonation (Login as User)
 Allows an admin to log in as a specific client without knowing their password.
 - **POST** `/admin/users/:id/impersonate`
 - **Response:**
@@ -36,20 +38,21 @@ Allows an admin to log in as a specific client without knowing their password.
   }
   ```
 
-### Financials
-- **GET** `/admin/payments` - List payment history.
+### Financials & Subscriptions
+- **GET** `/admin/payments` - List all payment history.
+- **GET** `/admin/users/:id/payments` - **New:** List payments for a specific user.
 - **POST** `/admin/payments` - Record a manual payment.
   - **Effect:** Automatically extends the user's subscription by 30 days.
   - Body: `{ "subscription_id": "...", "amount": 299.00, "reference_id": "PIX123" }`
+- **PATCH** `/admin/subscriptions/:id/date` - **New:** Manually adjust subscription end date.
+  - Body: `{ "end_date": "2024-12-31" }`
 
 ### Plugins & Plans Management
 - **GET** `/admin/plans` - List all subscription plans.
 - **POST** `/admin/plans` - Create a new plan.
 - **DELETE** `/admin/plans/:id` - Delete a plan (only if no subscriptions are active).
-- **GET** `/admin/plugins` - List all installed plugins and their status.
+- **GET** `/admin/plugins` - List all installed plugins.
 - **PATCH** `/admin/plugins/:id/status` - Toggle status (`active`, `installed`, `available`).
-- **POST** `/admin/plugins/:id/toggle-plan` - Grant/Revoke plugin access to a specific plan.
-- **DELETE** `/admin/plugins/:id` - Permanently remove a plugin from the database.
 
 ### Logs
 - **GET** `/admin/logs` - Fetch audit logs of AI usage and costs.

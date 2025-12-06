@@ -64,6 +64,15 @@ export const api = {
     return handleResponse(res);
   },
 
+  updateUserStatus: async (id: string, status: string): Promise<User> => {
+    const res = await fetch(`${API_URL}/admin/users/${id}/status`, {
+        method: 'PATCH',
+        headers: getHeaders(),
+        body: JSON.stringify({ status })
+    });
+    return handleResponse(res);
+  },
+
   // --- SUBSCRIPTIONS & PLANS ---
   getPlans: async (): Promise<Plan[]> => {
     const res = await fetch(`${API_URL}/admin/plans`, { headers: getHeaders() });
@@ -96,6 +105,14 @@ export const api = {
   getSubscriptions: async (): Promise<Subscription[]> => {
     const res = await fetch(`${API_URL}/admin/subscriptions`, { headers: getHeaders() });
     return handleResponse(res);
+  },
+
+  updateSubscriptionDate: async (subId: string, endDate: string): Promise<void> => {
+      await fetch(`${API_URL}/admin/subscriptions/${subId}/date`, {
+          method: 'PATCH',
+          headers: getHeaders(),
+          body: JSON.stringify({ end_date: endDate })
+      });
   },
 
   // --- PLUGINS (MARKETPLACE) ---
@@ -139,6 +156,11 @@ export const api = {
 
   getPayments: async (): Promise<Payment[]> => {
     const res = await fetch(`${API_URL}/admin/payments`, { headers: getHeaders() });
+    return handleResponse(res);
+  },
+
+  getPaymentsByUser: async (userId: string): Promise<Payment[]> => {
+    const res = await fetch(`${API_URL}/admin/users/${userId}/payments`, { headers: getHeaders() });
     return handleResponse(res);
   },
 

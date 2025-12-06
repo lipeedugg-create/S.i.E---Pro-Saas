@@ -11,7 +11,7 @@ import { AdminPlugins } from './pages/admin/AdminPlugins';
 import { AdminUsers } from './pages/admin/AdminUsers';
 import { ClientDashboard } from './pages/client/ClientDashboard';
 import { ClientConfig } from './pages/client/ClientConfig';
-import { PublicAdminSearch } from './pages/client/PublicAdminSearch'; // Nova Importação
+import { PublicAdminSearch } from './pages/client/PublicAdminSearch';
 import { User } from './types';
 
 export default function App() {
@@ -60,16 +60,16 @@ export default function App() {
         return <ClientDashboard user={currentUser} />;
       case 'client-config':
         return <ClientConfig user={currentUser} />;
-      case 'client-public-search': // Nova Rota Mapeada
+      case 'client-public-search':
         return <PublicAdminSearch />;
       
       default:
-        return <div className="p-8 text-white">Página não encontrada</div>;
+        return <div className="p-8 text-white flex items-center justify-center h-full opacity-50">Página em construção</div>;
     }
   };
 
   return (
-    <div className="flex min-h-screen bg-slate-950 font-sans text-slate-200">
+    <div className="flex h-screen bg-slate-950 font-sans text-slate-200 overflow-hidden selection:bg-blue-500/30">
       
       {/* Sidebar (Responsive) */}
       <Sidebar 
@@ -81,15 +81,18 @@ export default function App() {
         onCloseMobile={() => setIsSidebarOpen(false)}
       />
 
-      <main className="flex-1 flex flex-col h-screen overflow-hidden relative">
+      <main className="flex-1 flex flex-col h-full relative overflow-hidden bg-slate-950">
         
-        {/* Mobile Header (Only visible on small screens) */}
-        <header className="md:hidden flex items-center justify-between p-4 bg-slate-950 border-b border-slate-800 z-20">
+        {/* Mobile Header (Sticky) */}
+        <header className="md:hidden flex items-center justify-between px-4 h-16 bg-slate-950/90 backdrop-blur-md border-b border-slate-900 z-20 shrink-0">
           <div className="flex items-center gap-2">
-             <div className="w-8 h-8 bg-blue-600 rounded flex items-center justify-center text-white font-bold text-xs">S</div>
-             <span className="font-bold text-white">S.I.E. PRO</span>
+             <div className="w-8 h-8 bg-gradient-to-br from-blue-600 to-indigo-600 rounded flex items-center justify-center text-white font-bold text-xs shadow-lg">S</div>
+             <span className="font-bold text-white tracking-tight">S.I.E. PRO</span>
           </div>
-          <button onClick={() => setIsSidebarOpen(true)} className="text-slate-300 p-2">
+          <button 
+            onClick={() => setIsSidebarOpen(true)} 
+            className="text-slate-400 hover:text-white p-2 transition-colors"
+          >
             <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16m-7 6h7" />
             </svg>
@@ -97,7 +100,7 @@ export default function App() {
         </header>
 
         {/* Scrollable Content Area */}
-        <div className="flex-1 overflow-y-auto overflow-x-hidden p-0">
+        <div className="flex-1 overflow-y-auto overflow-x-hidden scroll-smooth">
            {renderContent()}
         </div>
       </main>

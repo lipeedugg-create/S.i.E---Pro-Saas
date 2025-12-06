@@ -147,7 +147,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ currentAdminId }
 
         <div className="bg-slate-800 border border-slate-700 rounded-xl p-6 shadow-lg">
           <p className="text-slate-400 text-sm mb-1 uppercase font-bold tracking-wider">Entradas Hoje</p>
-          <p className="text-3xl font-bold text-green-500">R$ {stats.paymentsToday.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</p>
+          <p className="text-3xl font-bold text-emerald-400">R$ {stats.paymentsToday.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</p>
         </div>
 
         <div className="bg-slate-800 border border-slate-700 rounded-xl p-4 shadow-lg flex flex-col justify-between">
@@ -201,7 +201,6 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ currentAdminId }
               filteredUsers.map(user => {
                 const sub = getSubForUser(user.id);
                 const isExpired = sub?.status === 'expired' || (sub?.end_date ? new Date(sub.end_date) < new Date() : false);
-                // Utilizando a variável 'plans' para obter o nome, ou fallback para o ID
                 const planName = sub ? (plans.find(p => p.id === sub.plan_id)?.name || sub.plan_id) : 'Sem Plano';
                 
                 return (
@@ -222,8 +221,8 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ currentAdminId }
                     <td className="px-6 py-4">
                       {sub ? (
                         <div>
-                           <div className={`flex items-center gap-1.5 font-bold text-xs uppercase ${isExpired ? 'text-red-400' : 'text-green-400'}`}>
-                             <div className={`w-1.5 h-1.5 rounded-full ${isExpired ? 'bg-red-500' : 'bg-green-500'}`}></div>
+                           <div className={`flex items-center gap-1.5 font-bold text-xs uppercase ${isExpired ? 'text-red-400' : 'text-emerald-400'}`}>
+                             <div className={`w-1.5 h-1.5 rounded-full ${isExpired ? 'bg-red-500' : 'bg-emerald-500'}`}></div>
                              {isExpired ? 'Expirado' : 'Ativo'}
                            </div>
                            <div className="text-slate-500 text-xs mt-0.5">Renova: {new Date(sub.end_date).toLocaleDateString()}</div>
@@ -234,7 +233,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ currentAdminId }
                       {sub && (
                         <button
                           onClick={() => setSelectedUser(user)}
-                          className="bg-green-600/10 hover:bg-green-600/20 text-green-400 border border-green-600/50 text-xs font-bold py-1.5 px-3 rounded transition-all ml-auto flex items-center gap-1"
+                          className="bg-emerald-600/10 hover:bg-emerald-600/20 text-emerald-400 border border-emerald-600/50 text-xs font-bold py-1.5 px-3 rounded transition-all ml-auto flex items-center gap-1"
                         >
                           $ Renovar
                         </button>

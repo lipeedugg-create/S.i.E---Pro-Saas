@@ -4,6 +4,10 @@ export interface User {
   email: string;
   role: 'admin' | 'client';
   name: string;
+  status?: 'active' | 'inactive' | 'suspended'; // Novo campo de controle de acesso
+  phone?: string; // Novo
+  last_login?: string; // Novo
+  created_at?: string;
 }
 
 // Matching the Subscriptions table

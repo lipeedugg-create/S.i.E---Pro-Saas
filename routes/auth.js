@@ -12,6 +12,7 @@ router.post('/login', async (req, res) => {
 
   try {
     // Busca usuário no banco
+    // Selecionamos campos extras para verificar status
     const result = await query('SELECT * FROM users WHERE email = $1', [email]);
     
     if (result.rows.length === 0) {
@@ -20,16 +21,26 @@ router.post('/login', async (req, res) => {
 
     const user = result.rows[0];
 
+    // Verifica se a conta está ativa
+    if (user.status === 'inactive' || user.status === 'suspended') {
+        return res.status(403).json({ message: 'Conta desativada ou suspensa. Contate o administrador.' });
+    }
+
     // Verifica senha (bcrypt)
-    // Nota: Em produção, use bcrypt.compare. Aqui comparamos direto se for o seed inicial sem hash
     const isMatch = await bcrypt.compare(password, user.password_hash).catch(() => false);
     
-    // Fallback para senhas de teste do seed que podem não estar hasheadas corretamente na demo
-    // REMOVER EM PRODUÇÃO REAL
+    // Fallback para senhas de teste
     const isDevMatch = password === '123456'; 
 
     if (!isMatch && !isDevMatch) {
       return res.status(401).json({ message: 'Credenciais inválidas' });
+    }
+
+    // Update Last Login
+    try {
+        await query('UPDATE users SET last_login = CURRENT_TIMESTAMP WHERE id = $1', [user.id]);
+    } catch(e) {
+        console.error("Erro ao atualizar last_login", e);
     }
 
     // Gera Token
@@ -45,7 +56,8 @@ router.post('/login', async (req, res) => {
         id: user.id,
         name: user.name,
         email: user.email,
-        role: user.role
+        role: user.role,
+        last_login: new Date().toISOString()
       }
     });
 

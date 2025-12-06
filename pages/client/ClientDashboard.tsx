@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { api } from '../../services/api';
-import { MasterItem, User } from '../../types';
+import { MasterItem, User, Subscription, Plan } from '../../types';
 
 interface ClientDashboardProps {
   user: User;
@@ -9,103 +9,177 @@ interface ClientDashboardProps {
 export const ClientDashboard: React.FC<ClientDashboardProps> = ({ user }) => {
   const [items, setItems] = useState<MasterItem[]>([]);
   const [loading, setLoading] = useState(true);
+  const [subs, setSubs] = useState<Subscription[]>([]);
+  const [plans, setPlans] = useState<Plan[]>([]);
 
   useEffect(() => {
-    const fetchItems = async () => {
+    const fetchData = async () => {
       try {
-        const data = await api.getItemsByUserId(user.id);
-        setItems(data);
-        setLoading(false);
+        const [itemsData, subsData, plansData] = await Promise.all([
+          api.getItemsByUserId(user.id),
+          api.getSubscriptions(),
+          api.getPlans()
+        ]);
+        setItems(itemsData);
+        setSubs(subsData);
+        setPlans(plansData);
       } catch (err) {
         console.error(err);
+      } finally {
+        setLoading(false);
       }
     };
 
-    fetchItems();
-    // Poll menos frequente em produção para economizar banda
-    const interval = setInterval(fetchItems, 10000);
+    fetchData();
+    const interval = setInterval(() => {
+        api.getItemsByUserId(user.id).then(setItems).catch(console.error);
+    }, 15000);
     return () => clearInterval(interval);
   }, [user.id]);
 
+  // Derivar dados de assinatura
+  const mySub = subs.find(s => s.user_id === user.id);
+  const myPlan = mySub ? plans.find(p => p.id === mySub.plan_id) : null;
+  const isExpired = mySub?.status === 'expired' || (mySub?.end_date ? new Date(mySub.end_date) < new Date() : false);
+  const daysRemaining = mySub?.end_date ? Math.ceil((new Date(mySub.end_date).getTime() - new Date().getTime()) / (1000 * 60 * 60 * 24)) : 0;
+
+  if (loading) {
+    return (
+        <div className="flex h-full items-center justify-center text-slate-400">
+            <div className="flex flex-col items-center gap-4">
+                <span className="w-8 h-8 border-4 border-blue-500 border-t-transparent rounded-full animate-spin"></span>
+                <p>Sincronizando feed de inteligência...</p>
+            </div>
+        </div>
+    );
+  }
+
   return (
-    <div className="p-8 max-w-7xl mx-auto">
-      <div className="mb-8 flex justify-between items-end">
+    <div className="p-8 bg-slate-900 min-h-full text-slate-200">
+      
+      {/* Header */}
+      <div className="flex flex-col md:flex-row md:items-end justify-between gap-4 mb-8">
         <div>
           <h2 className="text-2xl font-bold text-white">Dashboard de Monitoramento</h2>
-          <p className="text-slate-400">Insights estratégicos e análise de reputação para {user.name}.</p>
+          <p className="text-slate-500">Insights estratégicos e análise de reputação para {user.name}.</p>
         </div>
-        <div className="text-right">
-            <span className="inline-flex items-center px-3 py-1 rounded-full text-xs font-medium bg-green-900/30 text-green-400 border border-green-800">
-                <span className="w-2 h-2 rounded-full bg-green-500 mr-2 animate-pulse"></span>
-                API Conectada
-            </span>
+        <div className="flex items-center gap-3">
+            <div className={`px-4 py-2 rounded-lg border flex items-center gap-2 ${
+                !isExpired ? 'bg-emerald-900/20 border-emerald-900/50 text-emerald-400' : 'bg-red-900/20 border-red-900/50 text-red-400'
+            }`}>
+                <span className={`w-2 h-2 rounded-full ${!isExpired ? 'bg-emerald-500 animate-pulse' : 'bg-red-500'}`}></span>
+                <span className="text-xs font-bold uppercase tracking-wider">
+                    {myPlan ? myPlan.name : 'Sem Plano'} {isExpired ? '(Expirado)' : 'Ativo'}
+                </span>
+            </div>
         </div>
       </div>
 
-      {loading ? (
-        <div className="flex justify-center py-20"><span className="animate-spin h-8 w-8 border-4 border-blue-500 rounded-full border-t-transparent"></span></div>
-      ) : (
-        <>
-          <div className="grid grid-cols-1 lg:grid-cols-3 gap-8 mb-8">
-            <div className="bg-gradient-to-br from-blue-600 to-indigo-700 rounded-xl p-6 text-white shadow-lg border border-blue-500/30">
-              <h3 className="text-blue-100 text-sm font-medium mb-1 uppercase tracking-wider">Total de Insights</h3>
-              <p className="text-4xl font-bold">{items.length}</p>
-            </div>
-             <div className="bg-slate-800 rounded-xl p-6 shadow-lg border border-slate-700">
-              <h3 className="text-slate-400 text-sm font-medium mb-1 uppercase tracking-wider">Última Análise</h3>
-              <p className="text-2xl font-bold text-white">
-                {items.length > 0 ? new Date(items[0].created_at).toLocaleTimeString() : '--:--'}
-              </p>
-            </div>
-            <div className="bg-slate-800 rounded-xl p-6 shadow-lg border border-slate-700">
-              <h3 className="text-slate-400 text-sm font-medium mb-1 uppercase tracking-wider">Sentimento Predominante</h3>
-              <p className="text-2xl font-bold text-emerald-400">Neutro / Positivo</p>
-            </div>
-          </div>
-
-          <h3 className="text-lg font-bold text-white mb-4 flex items-center gap-2">
-            <span className="text-blue-500">📡</span> Feed em Tempo Real
-          </h3>
-          
-          <div className="space-y-4">
-            {items.length === 0 ? (
-              <div className="bg-slate-900/50 rounded-xl p-12 text-center border border-dashed border-slate-700">
-                <p className="text-slate-400 text-lg mb-2">Nenhum dado monitorado ainda.</p>
-                <p className="text-slate-600 text-sm">Certifique-se de que sua configuração está ativa.</p>
-              </div>
-            ) : (
-              items.map(item => (
-                <div key={item.id} className="bg-slate-800 rounded-xl p-6 shadow-sm border border-slate-700 hover:border-slate-600 transition-all group">
-                  <div className="flex justify-between items-start mb-3">
-                    <span className="bg-slate-700 text-slate-300 text-[10px] uppercase font-bold px-2 py-1 rounded border border-slate-600">
-                      {item.detected_keywords?.[0] || 'Geral'}
-                    </span>
-                    <span className="text-xs text-slate-500 font-mono">{new Date(item.created_at).toLocaleString()}</span>
-                  </div>
-                  
-                  <h4 className="font-bold text-lg text-white mb-2 group-hover:text-blue-400 transition-colors">
-                    {item.ai_summary || 'Resumo Indisponível'}
-                  </h4>
-                  
-                  <p className="text-sm text-slate-400 mb-4 leading-relaxed border-l-2 border-slate-600 pl-4 italic">
-                    "{item.analyzed_content ? item.analyzed_content.substring(0, 200) : ''}..."
-                  </p>
-                  
-                  <div className="flex flex-wrap gap-2 items-center justify-between mt-4 pt-4 border-t border-slate-700/50">
-                    <div className="flex gap-2">
-                        {item.detected_keywords?.map((kw, i) => (
-                        <span key={i} className="text-xs bg-slate-900 text-slate-400 px-2 py-1 rounded border border-slate-700">
-                            #{kw}
-                        </span>
-                        ))}
-                    </div>
-                  </div>
+      {/* Stats Cards */}
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
+        <div className="bg-slate-800 border border-slate-700 rounded-xl p-6 shadow-lg">
+            <div className="flex justify-between items-start mb-4">
+                <div>
+                    <p className="text-slate-400 text-xs font-bold uppercase tracking-wider mb-1">Total de Insights</p>
+                    <p className="text-3xl font-bold text-white">{items.length}</p>
                 </div>
-              ))
-            )}
+                <div className="p-2 bg-blue-900/20 rounded-lg text-blue-400">
+                    <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2v2H9V5z" />
+                    </svg>
+                </div>
+            </div>
+            <div className="h-1 w-full bg-slate-700 rounded-full overflow-hidden">
+                <div className="h-full bg-blue-500 w-3/4"></div>
+            </div>
+        </div>
+
+        <div className="bg-slate-800 border border-slate-700 rounded-xl p-6 shadow-lg">
+            <div className="flex justify-between items-start mb-4">
+                <div>
+                    <p className="text-slate-400 text-xs font-bold uppercase tracking-wider mb-1">Status da Assinatura</p>
+                    <p className="text-3xl font-bold text-white">
+                        {daysRemaining > 0 ? `${daysRemaining} dias` : 'Vencido'}
+                    </p>
+                </div>
+                <div className="p-2 bg-purple-900/20 rounded-lg text-purple-400">
+                    <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                    </svg>
+                </div>
+            </div>
+            <p className="text-xs text-slate-500">Renovação: {mySub?.end_date ? new Date(mySub.end_date).toLocaleDateString() : 'N/A'}</p>
+        </div>
+
+        <div className="bg-slate-800 border border-slate-700 rounded-xl p-6 shadow-lg">
+            <div className="flex justify-between items-start mb-4">
+                <div>
+                    <p className="text-slate-400 text-xs font-bold uppercase tracking-wider mb-1">Última Análise</p>
+                    <p className="text-2xl font-bold text-emerald-400">
+                         {items.length > 0 ? new Date(items[0].created_at).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'}) : '--:--'}
+                    </p>
+                </div>
+                <div className="p-2 bg-emerald-900/20 rounded-lg text-emerald-400">
+                    <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" />
+                    </svg>
+                </div>
+            </div>
+            <p className="text-xs text-slate-500">Motor: Gemini 2.5 Flash</p>
+        </div>
+      </div>
+
+      {/* Feed Section */}
+      <h3 className="text-lg font-bold text-white mb-4 flex items-center gap-2 px-1">
+         <span className="w-1.5 h-6 bg-blue-500 rounded-full"></span>
+         Feed em Tempo Real
+      </h3>
+      
+      <div className="space-y-4">
+        {items.length === 0 ? (
+          <div className="bg-slate-800 rounded-xl p-12 text-center border border-dashed border-slate-700">
+            <div className="text-4xl mb-4">📡</div>
+            <p className="text-slate-300 text-lg font-bold mb-2">Aguardando dados</p>
+            <p className="text-slate-500 text-sm">O sistema de monitoramento ainda não detectou novos itens para seus critérios.</p>
           </div>
-        </>
-      )}
+        ) : (
+          items.map(item => (
+            <div key={item.id} className="bg-slate-800 rounded-xl p-6 shadow-md border border-slate-700 hover:border-slate-600 transition-all group">
+              <div className="flex justify-between items-start mb-3">
+                <div className="flex gap-2">
+                    {item.detected_keywords?.map((kw, i) => (
+                        <span key={i} className="bg-slate-900 text-blue-400 text-[10px] uppercase font-bold px-2 py-1 rounded border border-slate-700">
+                        {kw}
+                        </span>
+                    ))}
+                </div>
+                <span className="text-xs text-slate-500 font-mono flex items-center gap-1">
+                    <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+                    </svg>
+                    {new Date(item.created_at).toLocaleString()}
+                </span>
+              </div>
+              
+              <h4 className="font-bold text-lg text-white mb-2 group-hover:text-blue-400 transition-colors">
+                {item.ai_summary || 'Resumo não disponível'}
+              </h4>
+              
+              <div className="bg-slate-900/50 p-4 rounded-lg border border-slate-700/50">
+                <p className="text-sm text-slate-400 leading-relaxed italic">
+                    "{item.analyzed_content ? item.analyzed_content.substring(0, 240) : ''}..."
+                </p>
+              </div>
+              
+              <div className="flex justify-end mt-4">
+                  <a href={item.source_url} target="_blank" rel="noreferrer" className="text-xs font-bold text-slate-500 hover:text-white flex items-center gap-1 transition-colors">
+                      VER FONTE ORIGINAL ➜
+                  </a>
+              </div>
+            </div>
+          ))
+        )}
+      </div>
     </div>
   );
 };
