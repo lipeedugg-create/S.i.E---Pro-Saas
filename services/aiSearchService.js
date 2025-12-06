@@ -1,4 +1,4 @@
-import { GoogleGenAI, Type } from "@google/genai";
+import { GoogleGenAI } from "@google/genai";
 import { query } from '../config/db.js';
 
 const apiKey = process.env.API_KEY;
@@ -11,13 +11,13 @@ const PLUGIN_ID = 'a0eebc99-9c0b-4ef8-bb6d-6bb9bd380a99';
 const DEFAULT_SYSTEM_PROMPT = `
     Você é o SISTEMA SIE (Strategic Intelligence Enterprise).
     Sua tarefa é gerar um relatório de transparência pública sobre a administração de uma cidade brasileira.
-    Busque dados reais e atualizados.
+    Busque dados reais e atualizados na web.
 `;
 
 const DEFAULT_NEGATIVE_PROMPT = `
     - Não invente nomes de pessoas.
     - Se não encontrar uma informação específica, deixe o campo como "Não identificado" ou array vazio, não invente.
-    - Não use markdown no JSON.
+    - Não use markdown no JSON de resposta.
 `;
 
 const getPluginConfig = async () => {
@@ -30,6 +30,20 @@ const getPluginConfig = async () => {
         console.warn("Falha ao carregar config do plugin do DB, usando padrão.", e);
     }
     return {};
+};
+
+// Função de validação manual do Schema (já que googleSearch não suporta responseSchema na API)
+const validateSchema = (data) => {
+    const errors = [];
+    if (!data.city) errors.push("Campo 'city' ausente.");
+    if (!data.mayor || !data.mayor.name) errors.push("Campo 'mayor.name' ausente.");
+    if (!Array.isArray(data.councilors)) errors.push("Campo 'councilors' deve ser um array.");
+    if (!Array.isArray(data.key_servants)) errors.push("Campo 'key_servants' deve ser um array.");
+    
+    if (errors.length > 0) {
+        throw new Error(`Validação de Schema falhou: ${errors.join(', ')}`);
+    }
+    return true;
 };
 
 export const searchCityAdmin = async (city) => {
@@ -51,90 +65,58 @@ export const searchCityAdmin = async (city) => {
             ${negativePromptDB}
         `;
 
-        // 3. Define o Schema Rígido (O modelo NÃO pode fugir dessa estrutura)
-        const outputSchema = {
-            type: Type.OBJECT,
-            properties: {
-                city: { type: Type.STRING, description: "Nome da cidade pesquisada" },
-                last_updated: { type: Type.STRING, description: "Data da informação (hoje)" },
-                mayor: {
-                    type: Type.OBJECT,
-                    properties: {
-                        name: { type: Type.STRING },
-                        role: { type: Type.STRING },
-                        party: { type: Type.STRING },
-                        past_roles: { type: Type.ARRAY, items: { type: Type.STRING } }
-                    },
-                    required: ["name", "party"]
-                },
-                vice_mayor: {
-                    type: Type.OBJECT,
-                    properties: {
-                        name: { type: Type.STRING },
-                        role: { type: Type.STRING },
-                        party: { type: Type.STRING },
-                        past_roles: { type: Type.ARRAY, items: { type: Type.STRING } }
-                    }
-                },
-                councilors: {
-                    type: Type.ARRAY,
-                    description: "Lista de vereadores principais ou mesa diretora",
-                    items: {
-                        type: Type.OBJECT,
-                        properties: {
-                            name: { type: Type.STRING },
-                            role: { type: Type.STRING },
-                            party: { type: Type.STRING },
-                            past_roles: { type: Type.ARRAY, items: { type: Type.STRING } }
-                        }
-                    }
-                },
-                key_servants: {
-                    type: Type.ARRAY,
-                    description: "Secretários municipais e cargos de confiança",
-                    items: {
-                        type: Type.OBJECT,
-                        properties: {
-                            name: { type: Type.STRING },
-                            department: { type: Type.STRING },
-                            role_type: { type: Type.STRING },
-                            estimated_salary: { type: Type.STRING }
-                        }
-                    }
-                }
-            },
-            required: ["city", "mayor", "councilors", "key_servants"]
-        };
+        // 3. Prompt Reforçado para JSON (Substituindo responseSchema)
+        const userPrompt = `
+            Pesquise dados oficiais atualizados e gere o relatório administrativo para a cidade de: ${city} (Brasil).
+            
+            FORMATO OBRIGATÓRIO DE RESPOSTA (JSON PURO):
+            {
+                "city": "Nome da Cidade",
+                "last_updated": "Data de hoje",
+                "mayor": { "name": "Nome", "role": "Prefeito", "party": "Partido", "past_roles": ["Ex-Cargo 1"] },
+                "vice_mayor": { "name": "Nome", "role": "Vice-Prefeito", "party": "Partido" },
+                "councilors": [ { "name": "Nome", "role": "Vereador", "party": "Partido" } ],
+                "key_servants": [ { "name": "Nome", "department": "Secretaria", "role_type": "Comissionado/Efetivo", "estimated_salary": "R$ Valor" } ]
+            }
+            
+            IMPORTANTE: Retorne APENAS o JSON válido. Não use blocos de código markdown (\`\`\`json).
+        `;
 
-        // 4. Executa a geração com Search Grounding + Schema Enforcement
-        // Usamos gemini-2.5-flash com googleSearch para garantir dados reais.
+        // 4. Executa a geração com Search Grounding
+        // NOTA: responseSchema e responseMimeType removidos pois conflitam com googleSearch
         const response = await ai.models.generateContent({
             model: 'gemini-2.5-flash',
-            contents: `Pesquise dados oficiais atualizados e gere o relatório administrativo para a cidade de: ${city} (Brasil).`,
+            contents: userPrompt,
             config: {
                 systemInstruction: combinedSystemInstruction,
-                responseMimeType: 'application/json',
-                responseSchema: outputSchema,
                 temperature: 0.1, // Baixa temperatura para precisão factual
                 tools: [{ googleSearch: {} }] // Força uso de dados reais da web
             }
         });
 
-        // 5. Processamento e Validação da Resposta
+        // 5. Processamento e Limpeza da Resposta
         let textResponse = response.text;
         
-        // Safety Clean (embora responseSchema evite markdown, garantimos)
+        // Remove Markdown se o modelo teimar em enviar
         if (textResponse.includes('```json')) {
             textResponse = textResponse.replace(/```json/g, '').replace(/```/g, '');
         } else if (textResponse.includes('```')) {
             textResponse = textResponse.replace(/```/g, '');
         }
 
-        const data = JSON.parse(textResponse.trim());
+        let data;
+        try {
+            data = JSON.parse(textResponse.trim());
+        } catch (e) {
+            console.error("Erro ao parsear JSON da IA:", textResponse);
+            throw new Error("A IA gerou uma resposta inválida que não pôde ser processada.");
+        }
 
-        // Validação Lógica Básica (Fail-safe)
-        if (!data.mayor?.name || data.mayor.name === "Não identificado") {
-             // Opcional: Logar que a IA não encontrou dados satisfatórios
+        // 6. Validação Rigorosa (Aplicação)
+        validateSchema(data);
+
+        // Validação Lógica de Dados Vazios (Alucinação negativa)
+        if (data.mayor.name === "Não identificado" || data.mayor.name === "Nome") {
              console.warn(`Alerta de baixa confiança para cidade: ${city}`);
         }
         
@@ -146,6 +128,7 @@ export const searchCityAdmin = async (city) => {
 
     } catch (error) {
         console.error("AI Search Error:", error);
-        throw new Error("Falha na inteligência governamental. O sistema recusou a resposta por inconsistência.");
+        // Repassa a mensagem de erro para o frontend (pode ser erro de validação ou de rede)
+        throw new Error(error.message || "Falha na inteligência governamental.");
     }
 };

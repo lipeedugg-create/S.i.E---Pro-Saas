@@ -17,9 +17,42 @@ dotenv.config();
 const app = express();
 const PORT = process.env.PORT || 3000;
 
-// Configuração de CORS - Permite tudo para evitar bloqueios simples, ideal ajustar em produção real com domínio fixo
+// Configuração de CORS
 app.use(cors()); 
 app.use(express.json());
+
+// --- SECURITY: SIMPLE RATE LIMITER ---
+// Em produção real, use Redis ou 'express-rate-limit'. 
+// Esta é uma implementação em memória para o MVP.
+const requestCounts = new Map();
+const RATE_LIMIT_WINDOW = 60 * 1000; // 1 minuto
+const MAX_REQUESTS_PER_IP = 100; // Limite geral
+
+app.use((req, res, next) => {
+    const ip = req.ip;
+    const now = Date.now();
+    
+    if (!requestCounts.has(ip)) {
+        requestCounts.set(ip, { count: 1, startTime: now });
+        return next();
+    }
+
+    const userData = requestCounts.get(ip);
+    
+    if (now - userData.startTime > RATE_LIMIT_WINDOW) {
+        // Reset janela
+        userData.count = 1;
+        userData.startTime = now;
+        return next();
+    }
+
+    if (userData.count >= MAX_REQUESTS_PER_IP) {
+        return res.status(429).json({ message: "Muitas requisições. Tente novamente em um minuto." });
+    }
+
+    userData.count++;
+    next();
+});
 
 // --- ROTAS DA API ---
 app.use('/api/auth', authRoutes);

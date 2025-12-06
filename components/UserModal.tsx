@@ -37,6 +37,9 @@ export const UserModal: React.FC<UserModalProps> = ({ user, onClose, onSuccess }
 
   // State para edição de data de assinatura
   const [editEndDate, setEditEndDate] = useState('');
+  
+  // State para Atribuir Novo Plano
+  const [selectedPlanId, setSelectedPlanId] = useState('');
 
   useEffect(() => {
     if (user) {
@@ -73,7 +76,11 @@ export const UserModal: React.FC<UserModalProps> = ({ user, onClose, onSuccess }
         setSubscription(sub);
         setPayments(pays);
         setPlans(plansList);
-        if(sub) setEditEndDate(sub.end_date);
+        
+        if(sub) {
+            setEditEndDate(sub.end_date);
+            setSelectedPlanId(sub.plan_id);
+        }
     } catch(e) {
         console.error(e);
     } finally {
@@ -113,6 +120,19 @@ export const UserModal: React.FC<UserModalProps> = ({ user, onClose, onSuccess }
           onSuccess();
       } catch(e) {
           alert('Erro ao atualizar data.');
+      }
+  };
+
+  const handleAssignPlan = async () => {
+      if(!user || !selectedPlanId) return;
+      if(!confirm('Isso atualizará o plano do usuário e definirá a assinatura como ativa. Continuar?')) return;
+      
+      try {
+          await api.assignPlan(user.id, selectedPlanId);
+          alert('Plano atribuído com sucesso!');
+          fetchExtraData(user.id); // Recarrega dados
+      } catch(e: any) {
+          alert('Erro ao atribuir plano: ' + e.message);
       }
   };
 
@@ -218,14 +238,44 @@ export const UserModal: React.FC<UserModalProps> = ({ user, onClose, onSuccess }
                 <div className="space-y-6">
                     {loadingExtras ? <div className="text-center text-slate-500">Carregando dados financeiros...</div> : (
                         <>
+                            {/* PLAN MANAGEMENT SECTION */}
                             <div className="bg-slate-800 p-4 rounded-xl border border-slate-700">
                                 <h3 className="text-white font-bold mb-4 flex items-center gap-2">
-                                    <span className="text-emerald-400">💳</span> Assinatura Atual
+                                    <span className="text-blue-400">⚡</span> Gestão de Plano
+                                </h3>
+                                <div className="flex gap-2 items-end">
+                                    <div className="flex-1">
+                                        <label className="block text-xs font-bold text-slate-400 uppercase mb-1">Atribuir / Alterar Plano</label>
+                                        <select
+                                            value={selectedPlanId}
+                                            onChange={(e) => setSelectedPlanId(e.target.value)}
+                                            className="w-full bg-slate-950 border border-slate-700 text-white rounded-lg p-2.5 outline-none text-sm"
+                                        >
+                                            <option value="">Selecione um plano...</option>
+                                            {plans.map(p => (
+                                                <option key={p.id} value={p.id}>{p.name} - R$ {Number(p.price).toFixed(2)}</option>
+                                            ))}
+                                        </select>
+                                    </div>
+                                    <button 
+                                        onClick={handleAssignPlan}
+                                        disabled={!selectedPlanId}
+                                        className="bg-blue-600 hover:bg-blue-700 disabled:bg-slate-700 disabled:text-slate-500 text-white font-bold py-2.5 px-4 rounded-lg transition-colors text-sm"
+                                    >
+                                        Salvar Plano
+                                    </button>
+                                </div>
+                            </div>
+
+                            {/* CURRENT SUBSCRIPTION DETAILS */}
+                            <div className="bg-slate-800 p-4 rounded-xl border border-slate-700">
+                                <h3 className="text-white font-bold mb-4 flex items-center gap-2">
+                                    <span className="text-emerald-400">💳</span> Detalhes da Assinatura
                                 </h3>
                                 {subscription ? (
                                     <div className="grid grid-cols-2 gap-4 text-sm">
                                         <div>
-                                            <p className="text-slate-500 text-xs uppercase font-bold">Plano Contratado</p>
+                                            <p className="text-slate-500 text-xs uppercase font-bold">Plano Atual</p>
                                             <p className="text-white font-mono text-lg">{plans.find(p=>p.id === subscription.plan_id)?.name || subscription.plan_id}</p>
                                         </div>
                                         <div>
@@ -243,15 +293,16 @@ export const UserModal: React.FC<UserModalProps> = ({ user, onClose, onSuccess }
                                                     onChange={(e) => setEditEndDate(e.target.value)}
                                                     className="bg-slate-950 border border-slate-700 text-white rounded px-3 py-1.5 text-sm"
                                                 />
-                                                <button onClick={handleUpdateSubscriptionDate} className="bg-slate-700 hover:bg-blue-600 text-white px-3 py-1.5 rounded text-xs font-bold transition-colors">Atualizar</button>
+                                                <button onClick={handleUpdateSubscriptionDate} className="bg-slate-700 hover:bg-blue-600 text-white px-3 py-1.5 rounded text-xs font-bold transition-colors">Atualizar Data</button>
                                             </div>
                                         </div>
                                     </div>
                                 ) : (
-                                    <p className="text-slate-500 italic">Usuário não possui assinatura ativa.</p>
+                                    <p className="text-slate-500 italic">Usuário não possui assinatura ativa. Atribua um plano acima para ativar.</p>
                                 )}
                             </div>
 
+                            {/* PAYMENT HISTORY */}
                             <div>
                                 <h3 className="text-white font-bold mb-3 text-sm">Histórico de Pagamentos</h3>
                                 <div className="border border-slate-800 rounded-lg overflow-hidden">

@@ -109,6 +109,40 @@ router.patch('/users/:id/status', async (req, res) => {
     }
 });
 
+// Endpoint para atribuir/alterar plano
+router.post('/users/:id/subscription', async (req, res) => {
+    const { id } = req.params;
+    const { plan_id } = req.body;
+
+    if (!plan_id) return res.status(400).json({ message: "Plan ID is required" });
+
+    try {
+        // Verifica se já existe assinatura
+        const existing = await query('SELECT * FROM subscriptions WHERE user_id = $1', [id]);
+        
+        if (existing.rows.length > 0) {
+            // Atualiza
+            await query(
+                `UPDATE subscriptions 
+                 SET plan_id = $1, status = 'active', 
+                     end_date = CASE WHEN end_date < CURRENT_DATE THEN CURRENT_DATE + INTERVAL '30 days' ELSE end_date END
+                 WHERE user_id = $2`,
+                [plan_id, id]
+            );
+        } else {
+            // Cria Nova
+            await query(
+                `INSERT INTO subscriptions (user_id, plan_id, status, start_date, end_date) 
+                 VALUES ($1, $2, 'active', CURRENT_DATE, CURRENT_DATE + INTERVAL '30 days')`,
+                [id, plan_id]
+            );
+        }
+        res.json({ success: true });
+    } catch (err) {
+        res.status(500).json({ error: err.message });
+    }
+});
+
 router.get('/users/:id/payments', async (req, res) => {
     const { id } = req.params;
     try {

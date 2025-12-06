@@ -73,6 +73,14 @@ export const api = {
     return handleResponse(res);
   },
 
+  assignPlan: async (userId: string, planId: string): Promise<void> => {
+    await fetch(`${API_URL}/admin/users/${userId}/subscription`, {
+        method: 'POST',
+        headers: getHeaders(),
+        body: JSON.stringify({ plan_id: planId })
+    });
+  },
+
   // --- SUBSCRIPTIONS & PLANS ---
   getPlans: async (): Promise<Plan[]> => {
     const res = await fetch(`${API_URL}/admin/plans`, { headers: getHeaders() });
