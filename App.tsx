@@ -22,32 +22,58 @@ export default function App() {
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
   const [isAuthLoading, setIsAuthLoading] = useState(true);
 
-  // Restore Session on Load
+  // Restore Session on Load (Optimistic + Validation)
   useEffect(() => {
     const checkSession = async () => {
         const token = localStorage.getItem('token');
+        const cachedUserStr = localStorage.getItem('user_cache');
+
+        // 1. Hidratação Otimista (Optimistic Hydration)
+        // Se temos token e cache, assumimos login IMEDIATO para evitar o "piscar"
+        if (token && cachedUserStr) {
+            try {
+                const cachedUser = JSON.parse(cachedUserStr);
+                setCurrentUser(cachedUser);
+                // Se o usuário estava na Home, redireciona. 
+                // Se já estava navegando, mantém onde estava (não reseta pra Home).
+                if (activePage === 'homepage' || activePage === 'login') {
+                     setActivePage(cachedUser.role === 'admin' ? 'admin-dashboard' : 'client-dashboard');
+                }
+            } catch (e) {
+                console.error("Cache inválido", e);
+            }
+        }
+
         if (!token) {
             setIsAuthLoading(false);
             return;
         }
 
+        // 2. Validação Assíncrona no Servidor
         try {
-            const user = await api.validateSession();
-            setCurrentUser(user);
-            // Se estiver na home ou login, redireciona para dashboard correto
-            if (activePage === 'login' || activePage === 'homepage') {
-                 setActivePage(user.role === 'admin' ? 'admin-dashboard' : 'client-dashboard');
+            const freshUser = await api.validateSession();
+            // Atualiza com dados frescos do servidor
+            setCurrentUser(freshUser);
+            localStorage.setItem('user_cache', JSON.stringify(freshUser));
+            
+            // Redirecionamento inicial apenas se ainda estiver na tela de load/login
+            if (!currentUser && (activePage === 'login' || activePage === 'homepage')) {
+                 setActivePage(freshUser.role === 'admin' ? 'admin-dashboard' : 'client-dashboard');
             }
         } catch (error: any) {
             console.error("Sessão:", error.message);
-            // CRITICAL FIX: Logout APENAS se o erro for explicitamente de autenticação.
-            // Erros de rede, banco fora do ar, ou 500 NÃO devem deslogar o usuário.
+            
+            // CRITICAL FIX: Logout APENAS se o erro for 401/403 (Auth Error).
+            // Se for erro de rede (500, Failed to Fetch), MANTÉM o usuário logado via cache (Modo Offline/Resiliente).
             if (error.message.includes('AUTH_ERROR') || error.message.includes('Sessão expirada')) {
-                console.warn("Token inválido. Realizando logout.");
+                console.warn("Token inválido ou expirado. Realizando logout.");
                 localStorage.removeItem('token');
+                localStorage.removeItem('user_cache');
                 setCurrentUser(null);
+                setActivePage('homepage');
             } else {
-                console.warn("Erro de conexão, mas mantendo sessão local.");
+                console.warn("Backend indisponível momentaneamente. Mantendo sessão em cache.");
+                // Opcional: Mostrar toast de "Conexão Instável" aqui
             }
         } finally {
             setIsAuthLoading(false);
@@ -55,7 +81,7 @@ export default function App() {
     };
 
     checkSession();
-  }, []);
+  }, []); // Run once on mount
 
   const handleLogin = (user: User) => {
     setCurrentUser(user);
@@ -64,11 +90,12 @@ export default function App() {
 
   const handleLogout = () => {
     localStorage.removeItem('token');
+    localStorage.removeItem('user_cache');
     setCurrentUser(null);
     setActivePage('homepage'); 
   };
 
-  if (isAuthLoading) {
+  if (isAuthLoading && !currentUser) {
       return (
           <div className="h-screen w-screen bg-slate-950 flex items-center justify-center">
               <div className="flex flex-col items-center gap-4">

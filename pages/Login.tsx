@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { api } from '../services/api'; // Alterado de db para api
+import { api } from '../services/api'; 
 import { User } from '../types';
 
 interface LoginProps {
@@ -18,13 +18,12 @@ export const Login: React.FC<LoginProps> = ({ onLogin }) => {
     setLoading(true);
 
     try {
-      // Chamada Real à API Node.js
       const { user, token } = await api.login(email, password);
       
-      // Armazena o JWT para requisições futuras
+      // CRITICAL: Salva Token E Dados do Usuário para recuperação instantânea (Optimistic UI)
       localStorage.setItem('token', token);
+      localStorage.setItem('user_cache', JSON.stringify(user));
       
-      // Atualiza estado global
       onLogin(user);
     } catch (err: any) {
       console.error(err);
@@ -49,7 +48,7 @@ export const Login: React.FC<LoginProps> = ({ onLogin }) => {
       <div className="bg-slate-800/80 backdrop-blur-md border border-slate-700 p-8 rounded-2xl shadow-2xl w-full max-w-md z-10">
         <div className="text-center mb-8">
           <h1 className="text-2xl font-bold text-white">Acesso Corporativo</h1>
-          <p className="text-slate-400 text-sm mt-2">Ambiente de Produção (v3.0)</p>
+          <p className="text-slate-400 text-sm mt-2">Ambiente de Produção (v5.1)</p>
         </div>
 
         <form onSubmit={handleLogin} className="space-y-4">
@@ -79,8 +78,6 @@ export const Login: React.FC<LoginProps> = ({ onLogin }) => {
           {error && (
             <div className="p-3 bg-red-900/20 border border-red-900/50 rounded-lg text-red-400 text-xs text-center">
               {error}
-              <br/>
-              <span className="opacity-70 text-[10px]">(Verifique se o Backend está rodando na porta 3000)</span>
             </div>
           )}
 
