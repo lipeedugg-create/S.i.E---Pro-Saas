@@ -26,6 +26,10 @@ export const ClientConfig: React.FC<ClientConfigProps> = ({ user }) => {
   const [saved, setSaved] = useState(false);
   const [loading, setLoading] = useState(true);
   
+  // Estados para verificação de URL
+  const [isCheckingUrl, setIsCheckingUrl] = useState(false);
+  const [urlStatus, setUrlStatus] = useState<'idle' | 'valid' | 'invalid'>('idle');
+  
   // Estados de Execução Manual
   const [isRunning, setIsRunning] = useState(false);
   const [runMessage, setRunMessage] = useState('');
@@ -45,14 +49,15 @@ export const ClientConfig: React.FC<ClientConfigProps> = ({ user }) => {
     }
   };
 
-  const handleSave = async (e?: React.FormEvent, shouldRun: boolean = false) => {
+  const handleSave = async (e?: React.FormEvent, forceRun: boolean = false) => {
     if(e) e.preventDefault();
     try {
         await api.upsertConfig(config);
         setSaved(true);
         setTimeout(() => setSaved(false), 2000);
 
-        if (shouldRun) {
+        // Se o usuário pediu ou se acabamos de ativar e nunca rodou, rodamos
+        if (forceRun || (config.is_active && !config.last_run_at)) {
             handleRunNow();
         }
     } catch (e) {
@@ -62,12 +67,13 @@ export const ClientConfig: React.FC<ClientConfigProps> = ({ user }) => {
 
   const handleRunNow = async () => {
       setIsRunning(true);
-      setRunMessage('');
+      setRunMessage('Iniciando varredura...');
       try {
           const res = await api.runMonitoringNow();
-          setRunMessage(`Varredura concluída! ${res.count} itens analisados.`);
+          setRunMessage(`Varredura concluída! ${res.count} novos itens detectados.`);
           // Recarrega config para atualizar 'last_run_at'
           await loadConfig();
+          setTimeout(() => setRunMessage(''), 5000);
       } catch (e: any) {
           setRunMessage(`Erro na execução: ${e.message}`);
       } finally {
@@ -82,11 +88,30 @@ export const ClientConfig: React.FC<ClientConfigProps> = ({ user }) => {
     setKeywordInput('');
   };
 
-  const addUrl = () => {
-    if (urlInput.trim()) {
-      setConfig(prev => ({ ...prev, urls_to_track: [...prev.urls_to_track, urlInput.trim()] }));
-      setUrlInput('');
-    }
+  const checkAndAddUrl = async () => {
+      const url = urlInput.trim();
+      if (!url) return;
+      
+      setIsCheckingUrl(true);
+      setUrlStatus('idle');
+
+      try {
+          // Verifica saúde da URL
+          const res = await api.checkUrl(url);
+          if (res.status === 'ok') {
+               setConfig(prev => ({ ...prev, urls_to_track: [...prev.urls_to_track, url] }));
+               setUrlInput('');
+               setUrlStatus('valid');
+               setTimeout(() => setUrlStatus('idle'), 2000);
+          } else {
+               setUrlStatus('invalid');
+               alert("URL inválida ou inacessível. O robô não conseguiu conectar.");
+          }
+      } catch (e) {
+          setUrlStatus('invalid');
+      } finally {
+          setIsCheckingUrl(false);
+      }
   };
 
   // Cálculo de Próxima Execução
@@ -99,7 +124,7 @@ export const ClientConfig: React.FC<ClientConfigProps> = ({ user }) => {
       const last = getLastRunDate();
       if (!last) return null;
       const next = new Date(last);
-      // Simples lógica: Daily = +24h, Hourly = +1h
+      // Daily = +24h, Hourly = +1h
       if (config.frequency === 'daily') next.setHours(next.getHours() + 24);
       else next.setHours(next.getHours() + 1);
       return next;
@@ -107,6 +132,7 @@ export const ClientConfig: React.FC<ClientConfigProps> = ({ user }) => {
 
   const lastRun = getLastRunDate();
   const nextRun = getNextRunDate();
+  const isPending = nextRun && nextRun < new Date();
 
   if (loading) return <div className="p-8 text-center text-slate-400">Carregando configurações...</div>;
 
@@ -119,70 +145,75 @@ export const ClientConfig: React.FC<ClientConfigProps> = ({ user }) => {
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
           
-          {/* COLUNA ESQUERDA: Status & Controle */}
+          {/* COLUNA ESQUERDA: Painel de Controle */}
           <div className="space-y-6">
-              {/* Card Status */}
+              
+              {/* Card Status & Cronograma */}
               <div className="bg-slate-800 rounded-xl border border-slate-700 p-6 shadow-lg">
-                  <h3 className="text-sm font-bold text-slate-400 uppercase tracking-wider mb-4">Estado do Agente</h3>
+                  <h3 className="text-sm font-bold text-slate-400 uppercase tracking-wider mb-4">Status do Monitoramento</h3>
                   
-                  <div className="flex items-center justify-between mb-6">
+                  <div className="flex items-center justify-between mb-6 p-3 bg-slate-900 rounded-lg border border-slate-700">
                       <div className="flex items-center gap-3">
                           <span className={`relative flex h-3 w-3`}>
                             {config.is_active && <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>}
                             <span className={`relative inline-flex rounded-full h-3 w-3 ${config.is_active ? 'bg-emerald-500' : 'bg-red-500'}`}></span>
                           </span>
-                          <span className={`font-bold ${config.is_active ? 'text-emerald-400' : 'text-slate-500'}`}>
-                              {config.is_active ? 'MONITORAMENTO ATIVO' : 'PAUSADO'}
+                          <span className={`font-bold text-sm ${config.is_active ? 'text-emerald-400' : 'text-slate-500'}`}>
+                              {config.is_active ? 'ATIVO' : 'PAUSADO'}
                           </span>
                       </div>
-                      <button
-                        type="button"
-                        onClick={() => setConfig(c => ({ ...c, is_active: !c.is_active }))}
-                        className={`relative inline-flex h-6 w-11 flex-shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none ${
-                        config.is_active ? 'bg-emerald-600' : 'bg-slate-700'
-                        }`}
-                    >
-                        <span className={`pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow ring-0 transition duration-200 ease-in-out ${
-                        config.is_active ? 'translate-x-5' : 'translate-x-0'
-                        }`} />
-                    </button>
+                      <div 
+                         onClick={() => setConfig(c => ({ ...c, is_active: !c.is_active }))}
+                         className={`relative inline-flex h-6 w-11 flex-shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none ${
+                             config.is_active ? 'bg-emerald-600' : 'bg-slate-700'
+                         }`}
+                      >
+                         <span className={`pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow ring-0 transition duration-200 ease-in-out ${
+                             config.is_active ? 'translate-x-5' : 'translate-x-0'
+                         }`} />
+                      </div>
                   </div>
 
                   <div className="space-y-4 border-t border-slate-700 pt-4">
                       <div>
-                          <p className="text-xs text-slate-500 mb-1 uppercase font-bold">Última Varredura</p>
+                          <p className="text-[10px] text-slate-500 mb-1 uppercase font-bold">Última Varredura</p>
                           <p className="text-white font-mono text-sm">
                               {lastRun ? lastRun.toLocaleString() : 'Nunca executado'}
                           </p>
                       </div>
                       <div>
-                          <p className="text-xs text-slate-500 mb-1 uppercase font-bold">Próxima Execução (Est.)</p>
-                          <p className="text-blue-400 font-mono text-sm">
-                              {nextRun ? nextRun.toLocaleString() : (config.is_active ? 'Aguardando agendamento...' : 'Monitoramento Pausado')}
-                          </p>
+                          <p className="text-[10px] text-slate-500 mb-1 uppercase font-bold">Próxima Execução (Estimada)</p>
+                          <div className="flex items-center gap-2">
+                              <p className={`font-mono text-sm ${isPending ? 'text-yellow-400 animate-pulse' : 'text-blue-400'}`}>
+                                  {nextRun ? nextRun.toLocaleString() : (config.is_active ? 'Aguardando agendamento...' : '---')}
+                              </p>
+                              {isPending && config.is_active && (
+                                  <span className="text-[10px] bg-yellow-900/30 text-yellow-500 px-1 rounded border border-yellow-800">PENDENTE</span>
+                              )}
+                          </div>
                       </div>
                   </div>
 
                   <button 
                     onClick={handleRunNow}
                     disabled={isRunning || !config.is_active}
-                    className="w-full mt-6 bg-blue-600 hover:bg-blue-700 disabled:bg-slate-700 disabled:text-slate-500 text-white font-bold py-3 rounded-lg shadow-lg shadow-blue-900/20 transition-all flex items-center justify-center gap-2"
+                    className="w-full mt-6 bg-slate-700 hover:bg-slate-600 disabled:opacity-50 text-white font-bold py-3 rounded-lg border border-slate-600 transition-all flex items-center justify-center gap-2 text-xs uppercase tracking-wide"
                   >
                     {isRunning ? (
                         <>
                            <span className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin"></span>
-                           Processando...
+                           Processando Agora...
                         </>
                     ) : (
-                        <>⚡ Executar Agora</>
+                        <>⚡ Forçar Varredura Manual</>
                     )}
                   </button>
-                  {runMessage && <p className="text-xs text-center mt-2 text-emerald-400 animate-pulse">{runMessage}</p>}
+                  {runMessage && <div className="mt-3 p-2 bg-emerald-900/20 text-emerald-400 text-xs text-center rounded border border-emerald-900/30">{runMessage}</div>}
               </div>
 
               {/* Frequência */}
               <div className="bg-slate-800 rounded-xl border border-slate-700 p-6 shadow-lg">
-                  <h3 className="text-sm font-bold text-slate-400 uppercase tracking-wider mb-4">Frequência</h3>
+                  <h3 className="text-sm font-bold text-slate-400 uppercase tracking-wider mb-4">Frequência de Busca</h3>
                   <div className="grid grid-cols-2 gap-2">
                       <button 
                         onClick={() => setConfig({...config, frequency: 'hourly'})}
@@ -208,7 +239,7 @@ export const ClientConfig: React.FC<ClientConfigProps> = ({ user }) => {
               </div>
           </div>
 
-          {/* COLUNA DIREITA: Formulário Principal */}
+          {/* COLUNA DIREITA: Inputs */}
           <div className="lg:col-span-2 space-y-6">
             <form onSubmit={(e) => handleSave(e, false)} className="bg-slate-800 rounded-xl shadow-lg border border-slate-700 p-6 md:p-8 space-y-8">
                 
@@ -269,15 +300,28 @@ export const ClientConfig: React.FC<ClientConfigProps> = ({ user }) => {
                         <span className="text-slate-500 text-xs normal-case">{config.urls_to_track.length} fontes</span>
                     </label>
                     <div className="flex gap-2 mb-4">
-                        <input
-                        type="url"
-                        value={urlInput}
-                        onChange={(e) => setUrlInput(e.target.value)}
-                        onKeyDown={(e) => e.key === 'Enter' && (e.preventDefault(), addUrl())}
-                        className="flex-1 bg-slate-950 border border-slate-700 rounded-lg px-4 py-3 text-white focus:ring-1 focus:ring-blue-500 focus:border-blue-500 outline-none transition-colors"
-                        placeholder="https://g1.globo.com/politica"
-                        />
-                        <button type="button" onClick={addUrl} className="bg-slate-700 text-white px-6 py-2 rounded-lg hover:bg-slate-600 font-medium transition-colors border border-slate-600">Add</button>
+                        <div className="flex-1 relative">
+                            <input
+                                type="url"
+                                value={urlInput}
+                                onChange={(e) => setUrlInput(e.target.value)}
+                                onKeyDown={(e) => e.key === 'Enter' && (e.preventDefault(), checkAndAddUrl())}
+                                className={`w-full bg-slate-950 border rounded-lg px-4 py-3 text-white focus:ring-1 outline-none transition-colors ${
+                                    urlStatus === 'invalid' ? 'border-red-500 focus:border-red-500' : 
+                                    urlStatus === 'valid' ? 'border-emerald-500 focus:border-emerald-500' : 'border-slate-700 focus:border-blue-500'
+                                }`}
+                                placeholder="https://g1.globo.com/politica"
+                            />
+                            {urlStatus === 'valid' && <span className="absolute right-3 top-3.5 text-emerald-500 text-xs font-bold">✓ VÁLIDO</span>}
+                        </div>
+                        <button 
+                            type="button" 
+                            onClick={checkAndAddUrl} 
+                            disabled={isCheckingUrl}
+                            className="bg-slate-700 text-white px-6 py-2 rounded-lg hover:bg-slate-600 font-medium transition-colors border border-slate-600 min-w-[100px]"
+                        >
+                            {isCheckingUrl ? <span className="animate-spin inline-block w-4 h-4 border-2 border-white/30 border-t-white rounded-full"></span> : 'Verificar e Add'}
+                        </button>
                     </div>
                     <ul className="space-y-2 bg-slate-900 p-4 rounded-xl border border-slate-700 min-h-[80px]">
                         {config.urls_to_track.length === 0 && <span className="text-slate-600 text-sm italic w-full text-center block py-4">Nenhuma URL configurada. Adicione portais de notícias, blogs ou feeds RSS.</span>}
@@ -296,13 +340,22 @@ export const ClientConfig: React.FC<ClientConfigProps> = ({ user }) => {
                     </ul>
                 </div>
 
-                <div className="pt-6 border-t border-slate-700 flex items-center justify-end gap-4">
+                <div className="pt-6 border-t border-slate-700 flex flex-col md:flex-row items-center justify-end gap-4">
                     {saved && <span className="text-green-400 text-sm font-medium flex items-center gap-2 animate-fade-in"><span className="w-2 h-2 rounded-full bg-green-500"></span> Configuração Salva!</span>}
+                    
+                    <button
+                        type="button"
+                         onClick={() => handleSave(undefined, true)}
+                        className="w-full md:w-auto px-6 py-3 border border-emerald-600/50 text-emerald-400 hover:bg-emerald-900/20 rounded-lg font-bold transition-all text-sm"
+                    >
+                        Salvar e Executar Agora ⚡
+                    </button>
+                    
                     <button
                         type="submit"
-                        className="bg-emerald-600 text-white px-8 py-3 rounded-lg hover:bg-emerald-700 transition-all shadow-lg shadow-emerald-900/20 font-bold flex items-center gap-2"
+                        className="w-full md:w-auto bg-blue-600 text-white px-8 py-3 rounded-lg hover:bg-blue-700 transition-all shadow-lg shadow-blue-900/20 font-bold flex items-center justify-center gap-2"
                     >
-                        <span>💾</span> Salvar Alterações
+                        <span>💾</span> Salvar Configuração
                     </button>
                 </div>
             </form>

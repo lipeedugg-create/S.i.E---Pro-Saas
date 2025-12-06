@@ -1,4 +1,5 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
+import { api } from './services/api';
 import { Login } from './pages/Login';
 import { Homepage } from './pages/Homepage';
 import { Documentation } from './pages/Documentation'; 
@@ -19,6 +20,31 @@ export default function App() {
   const [activePage, setActivePage] = useState<string>('homepage'); 
   const [showDocs, setShowDocs] = useState(false); 
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
+  const [isAuthLoading, setIsAuthLoading] = useState(true);
+
+  // Restore Session on Load
+  useEffect(() => {
+    const token = localStorage.getItem('token');
+    if (token) {
+        api.validateSession()
+            .then(user => {
+                setCurrentUser(user);
+                // Se estiver na home ou login, redireciona para dashboard
+                if (activePage === 'login' || activePage === 'homepage') {
+                     setActivePage(user.role === 'admin' ? 'admin-dashboard' : 'client-dashboard');
+                }
+            })
+            .catch(() => {
+                localStorage.removeItem('token');
+                setCurrentUser(null);
+            })
+            .finally(() => {
+                setIsAuthLoading(false);
+            });
+    } else {
+        setIsAuthLoading(false);
+    }
+  }, []);
 
   const handleLogin = (user: User) => {
     setCurrentUser(user);
@@ -26,9 +52,21 @@ export default function App() {
   };
 
   const handleLogout = () => {
+    localStorage.removeItem('token');
     setCurrentUser(null);
     setActivePage('homepage'); 
   };
+
+  if (isAuthLoading) {
+      return (
+          <div className="h-screen w-screen bg-slate-950 flex items-center justify-center">
+              <div className="flex flex-col items-center gap-4">
+                  <span className="w-10 h-10 border-4 border-blue-600 border-t-transparent rounded-full animate-spin"></span>
+                  <span className="text-slate-500 text-sm font-bold tracking-widest uppercase">Iniciando S.I.E. PRO...</span>
+              </div>
+          </div>
+      );
+  }
 
   if (showDocs) {
     return <Documentation onClose={() => setShowDocs(false)} />;

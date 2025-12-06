@@ -1,5 +1,6 @@
 import { GoogleGenAI } from "@google/genai";
 import { query } from '../config/db.js';
+import { logRequest } from './logService.js';
 
 // Inicializa Gemini
 const apiKey = process.env.API_KEY;
@@ -8,25 +9,28 @@ const ai = apiKey ? new GoogleGenAI({ apiKey }) : null;
 const COST_INPUT_PER_1K_USD = 0.000125;
 const COST_OUTPUT_PER_1K_USD = 0.000375;
 
-// Helper simples para extrair texto de HTML (Substituto leve para cheerio/puppeteer)
+// Helper simples para extrair texto de HTML
 const extractTextFromHtml = (html) => {
-    // Remove scripts e estilos
     let text = html.replace(/<script[^>]*>([\S\s]*?)<\/script>/gmi, "");
     text = text.replace(/<style[^>]*>([\S\s]*?)<\/style>/gmi, "");
-    // Remove tags HTML
     text = text.replace(/<[^>]+>/g, "\n");
-    // Remove linhas vazias excessivas e trim
     text = text.replace(/\n\s*\n/g, "\n").trim();
-    // Limita tamanho para não estourar tokens (aprox 15k caracteres)
     return text.substring(0, 15000);
 };
 
-// Helper para fazer fetch com timeout
-const fetchWithTimeout = async (url, timeout = 8000) => {
+// Helper para fazer fetch com timeout e HEADERS DE NAVEGADOR (Anti-Block)
+const fetchWithTimeout = async (url, timeout = 10000) => {
     const controller = new AbortController();
     const id = setTimeout(() => controller.abort(), timeout);
     try {
-        const response = await fetch(url, { signal: controller.signal });
+        const response = await fetch(url, { 
+            signal: controller.signal,
+            headers: {
+                'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+                'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8',
+                'Accept-Language': 'pt-BR,pt;q=0.9,en-US;q=0.8,en;q=0.7'
+            }
+        });
         clearTimeout(id);
         return response;
     } catch (err) {
@@ -79,7 +83,6 @@ async function analyzeWithGemini(text, keywords) {
         };
     } catch (e) {
         console.error("Gemini Error:", e);
-        // Em caso de erro de parse ou API, retorna estrutura vazia segura
         return {
             result: { sentiment: "Erro", impact: "N/A", summary: "Falha na análise IA", keywords: [] },
             metrics: { tokens_in: 0, tokens_out: 0, cost: 0 }
@@ -99,14 +102,10 @@ function mockAnalysis(text) {
     };
 }
 
-/**
- * Executa o ciclo de monitoramento.
- * @param {string|null} specificUserId - Se fornecido, roda apenas para este usuário.
- */
 export const runMonitoringCycle = async (specificUserId = null) => {
-    console.log(`Starting Monitoring Cycle... ${specificUserId ? `(Target User: ${specificUserId})` : '(Global)'}`);
+    const isManualRun = !!specificUserId;
+    console.log(`Starting Monitoring Cycle... ${isManualRun ? `(Manual: ${specificUserId})` : '(Auto/Global)'}`);
     
-    // 1. Construção dinâmica da query
     let sql = `
         SELECT c.* 
         FROM monitoring_configs c
@@ -115,77 +114,81 @@ export const runMonitoringCycle = async (specificUserId = null) => {
     `;
     
     const params = [];
-    if (specificUserId) {
+
+    if (isManualRun) {
         sql += ` AND c.user_id = $1`;
         params.push(specificUserId);
+    } else {
+        sql += `
+            AND (
+                c.last_run_at IS NULL
+                OR (c.frequency = 'hourly' AND c.last_run_at < NOW() - INTERVAL '1 hour')
+                OR (c.frequency = 'daily' AND c.last_run_at < NOW() - INTERVAL '24 hours')
+            )
+        `;
     }
 
     const configs = await query(sql, params);
+    
+    if (!isManualRun && configs.rows.length === 0) {
+        return 0;
+    }
+
     let processedCount = 0;
 
     for (const config of configs.rows) {
-        // Se não tiver URLs, pula
         if (!config.urls_to_track || config.urls_to_track.length === 0) continue;
-
-        let userHasUpdates = false;
 
         for (const url of config.urls_to_track) {
             try {
                 console.log(`Crawling ${url} for user ${config.user_id}...`);
                 
-                // 1. Crawler Real
                 const res = await fetchWithTimeout(url);
                 if (!res.ok) throw new Error(`Status ${res.status}`);
                 
                 const html = await res.text();
                 const content = extractTextFromHtml(html);
 
-                if (content.length < 50) {
-                    console.warn(`Conteúdo insuficiente em ${url}`);
-                    continue;
-                }
+                if (content.length < 50) continue;
 
-                // 2. Análise IA
                 const { result, metrics } = await analyzeWithGemini(content, config.keywords || []);
 
-                // 3. Persistir Resultado
                 await query(
                     `INSERT INTO master_items (user_id, source_url, analyzed_content, ai_summary, detected_keywords)
                      VALUES ($1, $2, $3, $4, $5)`,
                     [
                         config.user_id, 
                         url, 
-                        content.substring(0, 500) + "...", // Salva apenas o início para economizar DB
+                        content.substring(0, 500) + "...", 
                         result.summary, 
                         JSON.stringify(result.keywords)
                     ]
                 );
 
-                // 4. Log de Auditoria
-                await query(
-                    `INSERT INTO requests_log (user_id, endpoint, request_tokens, response_tokens, cost_usd, status)
-                     VALUES ($1, $2, $3, $4, $5, 'SUCCESS')`,
-                    [config.user_id, 'GEMINI_CRAWLER', metrics.tokens_in, metrics.tokens_out, metrics.cost]
-                );
+                // LOG CENTRALIZADO
+                await logRequest({
+                    userId: config.user_id,
+                    endpoint: 'GEMINI_CRAWLER',
+                    tokensIn: metrics.tokens_in,
+                    tokensOut: metrics.tokens_out,
+                    cost: metrics.cost,
+                    status: 'SUCCESS'
+                });
                 
-                userHasUpdates = true;
                 processedCount++;
 
             } catch (err) {
                 console.error(`Erro processando ${url}:`, err.message);
-                 await query(
-                    `INSERT INTO requests_log (user_id, endpoint, cost_usd, status)
-                     VALUES ($1, 'CRAWLER_ERROR', 0, 'FAILED')`,
-                    [config.user_id]
-                );
+                await logRequest({
+                    userId: config.user_id,
+                    endpoint: 'CRAWLER_ERROR',
+                    cost: 0,
+                    status: 'FAILED'
+                });
             }
         }
-
-        // 5. Atualiza o Timestamp da última execução para o usuário
-        if (userHasUpdates || specificUserId) { // Se for execução manual, atualiza mesmo se falhar URLs
-            await query('UPDATE monitoring_configs SET last_run_at = CURRENT_TIMESTAMP WHERE user_id = $1', [config.user_id]);
-        }
+        await query('UPDATE monitoring_configs SET last_run_at = CURRENT_TIMESTAMP WHERE user_id = $1', [config.user_id]);
     }
-    console.log(`Cycle finished. Processed ${processedCount} items.`);
+
     return processedCount;
 };

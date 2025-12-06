@@ -1,13 +1,5 @@
 import { User, Subscription, Payment, RequestLog, MasterItem, MonitoringConfig, Plugin, Plan, CityAdminData, PluginConfig } from '../types';
 
-/**
- * CLIENTE API DE PRODUÇÃO
- * 
- * Configuração Crítica para VPS:
- * Usamos apenas '/api' (caminho relativo). 
- * Isso permite que o navegador monte a URL correta automaticamente, 
- * seja localhost, IP da VPS ou domínio final.
- */
 const API_URL = '/api';
 
 const getHeaders = () => {
@@ -18,10 +10,17 @@ const getHeaders = () => {
   };
 };
 
-// Tratamento centralizado de erros
 const handleResponse = async (res: Response) => {
+  if (res.status === 401 || res.status === 403) {
+      if (localStorage.getItem('token') && !window.location.pathname.includes('login')) {
+          console.warn("Sessão expirada. Redirecionando...");
+          localStorage.removeItem('token');
+          window.location.href = '/'; 
+          throw new Error("Sessão expirada.");
+      }
+  }
+
   if (!res.ok) {
-    // Tenta ler o JSON de erro, se falhar, usa texto padrão com status
     const error = await res.json().catch(() => ({ message: `Erro HTTP ${res.status}` }));
     throw new Error(error.message || `Erro na requisição: ${res.status}`);
   }
@@ -36,6 +35,11 @@ export const api = {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ email, password })
     });
+    return handleResponse(res);
+  },
+
+  validateSession: async (): Promise<User> => {
+    const res = await fetch(`${API_URL}/auth/me`, { headers: getHeaders() });
     return handleResponse(res);
   },
 
@@ -90,7 +94,6 @@ export const api = {
   upsertPlan: async (plan: Plan & { isNew?: boolean }): Promise<Plan> => {
     const method = plan.isNew ? 'POST' : 'PUT';
     const url = plan.isNew ? `${API_URL}/admin/plans` : `${API_URL}/admin/plans/${plan.id}`;
-    // Remove isNew antes de enviar
     const { isNew, ...body } = plan; 
     const res = await fetch(url, {
         method,
@@ -105,7 +108,6 @@ export const api = {
         method: 'DELETE',
         headers: getHeaders()
     });
-    // Se a resposta for vazia mas ok, não tenta parsear JSON
     if (res.status === 204) return;
     return handleResponse(res);
   },
@@ -206,6 +208,16 @@ export const api = {
   getConfig: async (_userId: string): Promise<MonitoringConfig | null> => {
     const res = await fetch(`${API_URL}/client/config`, { headers: getHeaders() });
     return handleResponse(res);
+  },
+
+  checkUrl: async (url: string): Promise<{status: 'ok'|'error', code?: number}> => {
+    const res = await fetch(`${API_URL}/client/config/check-url`, {
+        method: 'POST',
+        headers: getHeaders(),
+        body: JSON.stringify({ url })
+    });
+    if (!res.ok) return { status: 'error' };
+    return res.json();
   },
 
   upsertConfig: async (config: MonitoringConfig): Promise<void> => {

@@ -2,7 +2,8 @@ import express from 'express';
 import { query } from '../config/db.js';
 import { authenticate } from '../middleware/auth.js';
 import { searchCityAdmin } from '../services/aiSearchService.js';
-import { runMonitoringCycle } from '../services/collectorService.js'; // Importando serviço real
+import { runMonitoringCycle } from '../services/collectorService.js';
+import { logRequest } from '../services/logService.js';
 
 const router = express.Router();
 router.use(authenticate);
@@ -22,9 +23,6 @@ router.put('/config', async (req, res) => {
   const userId = req.user.id;
   
   try {
-    // Upsert (Insert or Update)
-    // Se o banco não tiver last_run_at, ele ignorará se a coluna não existir, mas em prod devemos ter rodado migration.
-    // Usamos ON CONFLICT para atualizar.
     const result = await query(
       `INSERT INTO monitoring_configs (user_id, keywords, urls_to_track, frequency, is_active)
        VALUES ($1, $2, $3, $4, $5)
@@ -39,10 +37,34 @@ router.put('/config', async (req, res) => {
   }
 });
 
-// Endpoint para disparar monitoramento manualmente (Force Run)
+router.post('/config/check-url', async (req, res) => {
+    const { url } = req.body;
+    if (!url) return res.status(400).json({ message: "URL obrigatória" });
+
+    try {
+        const controller = new AbortController();
+        const timeoutId = setTimeout(() => controller.abort(), 5000); 
+        
+        const response = await fetch(url, { 
+            method: 'HEAD', 
+            signal: controller.signal,
+            headers: { 'User-Agent': 'SIE-Pro-Bot/1.0' }
+        });
+        
+        clearTimeout(timeoutId);
+
+        if (response.ok) {
+            res.json({ status: 'ok', code: response.status });
+        } else {
+            res.status(400).json({ status: 'error', code: response.status });
+        }
+    } catch (err) {
+        res.status(400).json({ status: 'error', message: 'URL inacessível ou timeout.' });
+    }
+});
+
 router.post('/monitoring/run', async (req, res) => {
     try {
-        // Roda o ciclo apenas para o usuário logado
         const processedCount = await runMonitoringCycle(req.user.id);
         res.json({ message: "Varredura iniciada com sucesso.", count: processedCount });
     } catch (err) {
@@ -51,7 +73,6 @@ router.post('/monitoring/run', async (req, res) => {
     }
 });
 
-// Itens Monitorados (Resultados)
 router.get('/items', async (req, res) => {
   try {
     const result = await query(
@@ -66,25 +87,23 @@ router.get('/items', async (req, res) => {
 
 // --- PLUGIN TOOLS ROUTES ---
 
-// POST /api/client/tools/public-admin-search
 router.post('/tools/public-admin-search', async (req, res) => {
     const { city } = req.body;
 
     if (!city) return res.status(400).json({ message: "Nome da cidade é obrigatório." });
 
     try {
-        // 1. Verificar se o usuário tem o plugin ativado (Opcional, mas recomendado)
-        // Por simplificação do prompt "o primeiro plugin sempre ativo", pulamos check complexo de DB.
-        
-        // 2. Chamar Serviço de IA
         const { data, cost, tokens } = await searchCityAdmin(city);
 
-        // 3. Registrar Log de Custo
-        await query(
-            `INSERT INTO requests_log (user_id, endpoint, request_tokens, response_tokens, cost_usd, status)
-             VALUES ($1, $2, $3, $4, $5, 'SUCCESS')`,
-            [req.user.id, 'TOOL_ADMIN_SEARCH', tokens.in, tokens.out, cost]
-        );
+        // Uso do Log Centralizado
+        await logRequest({
+            userId: req.user.id,
+            endpoint: 'TOOL_ADMIN_SEARCH',
+            tokensIn: tokens.in,
+            tokensOut: tokens.out,
+            cost: cost,
+            status: 'SUCCESS'
+        });
 
         res.json(data);
 
