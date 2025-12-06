@@ -314,10 +314,9 @@ app.listen(3000, () => console.log('Server running on port 3000'));
                     </p>
                 </div>
 
-                <h3 className="text-white font-bold mb-4">Service Layer & Impersonation</h3>
+                <h3 className="text-white font-bold mb-4">Service Layer & API</h3>
                 <p className="text-slate-400 text-sm mb-4">
-                    O arquivo <code>services/api.ts</code> centraliza todas as chamadas <code>fetch</code> e gerencia a injeção do token JWT. 
-                    O recurso de <strong>Impersonation</strong> permite que administradores gerem tokens válidos para qualquer usuário.
+                    O arquivo <code>services/api.ts</code> centraliza todas as chamadas <code>fetch</code> e gerencia a injeção do token JWT.
                 </p>
 
                 <CopyBlock 
@@ -351,12 +350,40 @@ export const api = {
                     `}
                 />
 
-                <h3 className="text-white font-bold mb-4">Componentes Principais Refatorados</h3>
+                <h3 className="text-white font-bold mb-4">Gestão de Usuários & Impersonation</h3>
+                <div className="grid grid-cols-1 gap-4 mb-6">
+                    <div className="bg-slate-800 p-5 rounded-lg border border-slate-700 shadow-sm">
+                        <h4 className="text-blue-400 font-bold text-base mb-2 flex items-center gap-2">
+                           🔐 Funcionalidade: Login como Usuário (Impersonation)
+                        </h4>
+                        <p className="text-sm text-slate-300 mb-3">
+                            Permite que administradores acessem o painel de qualquer cliente sem saber a senha (bypassing auth), ideal para suporte e debugging.
+                        </p>
+                        <ol className="list-decimal list-inside text-xs text-slate-400 space-y-1 font-mono bg-slate-900/50 p-3 rounded border border-slate-800">
+                            <li>Admin clica em "Login ➜" na lista de usuários.</li>
+                            <li>Frontend chama <code>POST /admin/users/:id/impersonate</code>.</li>
+                            <li>Backend valida Admin e gera novo JWT assinado com ID do alvo.</li>
+                            <li>Frontend substitui o token no <code>localStorage</code> e recarrega a aplicação.</li>
+                        </ol>
+                    </div>
+
+                    <div className="bg-slate-800 p-5 rounded-lg border border-slate-700 shadow-sm">
+                        <h4 className="text-emerald-400 font-bold text-base mb-2">
+                           👥 CRUD de Usuários (AdminUsers)
+                        </h4>
+                        <p className="text-sm text-slate-300 mb-2">
+                           Interface completa para administração de contas, separada em:
+                        </p>
+                        <ul className="list-disc list-inside text-xs text-slate-400 space-y-1">
+                           <li><strong>Listagem:</strong> Filtro por nome/email e visualização de status de assinatura.</li>
+                           <li><strong>Modal (UserModal.tsx):</strong> Formulário reutilizável para Criar e Editar usuários (Upsert).</li>
+                           <li><strong>Feedback Visual:</strong> Indicadores de assinatura ativa/expirada e role (Admin/Client).</li>
+                        </ul>
+                    </div>
+                </div>
+
+                <h3 className="text-white font-bold mb-4">Outros Componentes Refatorados</h3>
                 <ul className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm text-slate-400">
-                    <li className="bg-slate-800 p-3 rounded border border-slate-700">
-                        <strong className="text-white block mb-1">AdminUsers.tsx</strong>
-                        Nova interface de gestão de usuários com modais para edição e botão de Impersonation.
-                    </li>
                     <li className="bg-slate-800 p-3 rounded border border-slate-700">
                         <strong className="text-white block mb-1">AdminPlugins.tsx</strong>
                         Marketplace para instalar e ativar plugins, modificando a tabela <code>plugins</code> e <code>plan_plugins</code>.
@@ -364,10 +391,6 @@ export const api = {
                     <li className="bg-slate-800 p-3 rounded border border-slate-700">
                         <strong className="text-white block mb-1">ClientConfig.tsx</strong>
                         Interface de auto-atendimento para o cliente definir keywords de monitoramento (JSONB).
-                    </li>
-                    <li className="bg-slate-800 p-3 rounded border border-slate-700">
-                        <strong className="text-white block mb-1">Login.tsx</strong>
-                        Autenticação segura com tratamento de erros e feedback de carregamento.
                     </li>
                 </ul>
              </div>
