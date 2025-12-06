@@ -1,5 +1,6 @@
 import express from 'express';
 import jwt from 'jsonwebtoken';
+import bcrypt from 'bcryptjs';
 import { query } from '../config/db.js';
 import { authenticate, authorizeAdmin } from '../middleware/auth.js';
 
@@ -20,13 +21,17 @@ router.get('/users', async (req, res) => {
 });
 
 router.post('/users', async (req, res) => {
-  const { name, email, role } = req.body;
-  // Hash padrão para novos usuários criados pelo admin
-  const defaultHash = '$2a$10$X7X...'; // Hash de '123456'
+  const { name, email, role, password } = req.body;
+  
   try {
+    // Hash da senha fornecida ou padrão
+    const pwd = password || '123456';
+    const salt = await bcrypt.genSalt(10);
+    const hash = await bcrypt.hash(pwd, salt);
+
     const result = await query(
-      'INSERT INTO users (name, email, role, password_hash) VALUES ($1, $2, $3, $4) RETURNING *',
-      [name, email, role, defaultHash]
+      'INSERT INTO users (name, email, role, password_hash) VALUES ($1, $2, $3, $4) RETURNING id, name, email, role, created_at',
+      [name, email, role, hash]
     );
     res.json(result.rows[0]);
   } catch (err) {
@@ -36,12 +41,26 @@ router.post('/users', async (req, res) => {
 
 router.put('/users/:id', async (req, res) => {
   const { id } = req.params;
-  const { name, email, role } = req.body;
+  const { name, email, role, password } = req.body;
+  
   try {
-    const result = await query(
-      'UPDATE users SET name = $1, email = $2, role = $3 WHERE id = $4 RETURNING *',
-      [name, email, role, id]
-    );
+    let queryText = 'UPDATE users SET name = $1, email = $2, role = $3';
+    let queryParams = [name, email, role];
+
+    // Se a senha foi enviada, faz o hash e inclui na query
+    if (password && password.trim() !== '') {
+        const salt = await bcrypt.genSalt(10);
+        const hash = await bcrypt.hash(password, salt);
+        queryText += ', password_hash = $4 WHERE id = $5';
+        queryParams.push(hash, id);
+    } else {
+        queryText += ' WHERE id = $4';
+        queryParams.push(id);
+    }
+
+    queryText += ' RETURNING id, name, email, role, created_at';
+
+    const result = await query(queryText, queryParams);
     res.json(result.rows[0]);
   } catch (err) {
     res.status(500).json({ error: err.message });
@@ -89,7 +108,7 @@ router.get('/subscriptions', async (req, res) => {
   }
 });
 
-// --- PLANS (NOVO) ---
+// --- PLANS ---
 router.get('/plans', async (req, res) => {
   try {
     const result = await query('SELECT * FROM plans ORDER BY price ASC');
@@ -97,6 +116,49 @@ router.get('/plans', async (req, res) => {
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
+});
+
+router.post('/plans', async (req, res) => {
+    const { id, name, price, description } = req.body;
+    try {
+        const result = await query(
+            'INSERT INTO plans (id, name, price, description) VALUES ($1, $2, $3, $4) RETURNING *',
+            [id, name, price, description]
+        );
+        res.json(result.rows[0]);
+    } catch (err) {
+        res.status(500).json({ error: err.message });
+    }
+});
+
+router.put('/plans/:id', async (req, res) => {
+    const { id } = req.params;
+    const { name, price, description } = req.body;
+    try {
+        const result = await query(
+            'UPDATE plans SET name = $1, price = $2, description = $3 WHERE id = $4 RETURNING *',
+            [name, price, description, id]
+        );
+        res.json(result.rows[0]);
+    } catch (err) {
+        res.status(500).json({ error: err.message });
+    }
+});
+
+router.delete('/plans/:id', async (req, res) => {
+    const { id } = req.params;
+    try {
+        // Verifica dependências antes de deletar
+        const subCheck = await query('SELECT * FROM subscriptions WHERE plan_id = $1 LIMIT 1', [id]);
+        if (subCheck.rows.length > 0) {
+            return res.status(400).json({ message: 'Não é possível excluir: Existem assinaturas ativas neste plano.' });
+        }
+
+        await query('DELETE FROM plans WHERE id = $1', [id]);
+        res.json({ message: 'Plano removido com sucesso' });
+    } catch (err) {
+        res.status(500).json({ error: err.message });
+    }
 });
 
 // --- PAYMENTS ---
@@ -171,6 +233,16 @@ router.get('/plugins', async (req, res) => {
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
+});
+
+router.delete('/plugins/:id', async (req, res) => {
+    const { id } = req.params;
+    try {
+        await query('DELETE FROM plugins WHERE id = $1', [id]);
+        res.json({ message: 'Plugin removido com sucesso' });
+    } catch (err) {
+        res.status(500).json({ error: err.message });
+    }
 });
 
 router.patch('/plugins/:id/status', async (req, res) => {

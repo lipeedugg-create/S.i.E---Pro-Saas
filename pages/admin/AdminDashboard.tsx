@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { api } from '../../services/api'; // Mudança para API real
-import { User, Subscription, Payment } from '../../types';
+import { User, Subscription, Payment, Plan } from '../../types';
 import { PaymentModal } from '../../components/PaymentModal';
 
 interface AdminDashboardProps {
@@ -10,27 +10,33 @@ interface AdminDashboardProps {
 export const AdminDashboard: React.FC<AdminDashboardProps> = ({ currentAdminId }) => {
   const [users, setUsers] = useState<User[]>([]);
   const [subs, setSubs] = useState<Subscription[]>([]);
+  const [plans, setPlans] = useState<Plan[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   
   const [selectedUser, setSelectedUser] = useState<User | null>(null);
   const [stats, setStats] = useState({ users: 0, mrr: 0, paymentsToday: 0 });
   const [searchTerm, setSearchTerm] = useState('');
+  const [chartData, setChartData] = useState<{day: string, value: number}[]>([]);
 
   const fetchData = async () => {
     setLoading(true);
     setError('');
     try {
       // Executa chamadas em paralelo para performance
-      const [usersData, subsData, paymentsData] = await Promise.all([
+      const [usersData, subsData, paymentsData, plansData] = await Promise.all([
         api.getUsers(),
         api.getSubscriptions(),
-        api.getPayments()
+        api.getPayments(),
+        api.getPlans()
       ]);
 
       setUsers(usersData);
       setSubs(subsData);
-      calculateStats(usersData, subsData, paymentsData);
+      setPlans(plansData);
+      calculateStats(usersData, subsData, paymentsData, plansData);
+      calculateChartData(subsData, plansData);
+
     } catch (err) {
       console.error(err);
       setError('Erro ao carregar dados do servidor. Verifique a conexão.');
@@ -39,10 +45,14 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ currentAdminId }
     }
   };
 
-  const calculateStats = (u: User[], s: Subscription[], p: Payment[]) => {
+  const calculateStats = (u: User[], s: Subscription[], p: Payment[], pl: Plan[]) => {
     const activeSubs = s.filter(sub => sub.status === 'active');
-    // Preço deve vir do plano, aqui simplificado para logica de frontend
-    const mrr = activeSubs.reduce((acc, sub) => acc + (sub.plan_id.includes('pro') ? 299 : 99), 0);
+    
+    // MRR = Soma dos preços dos planos das assinaturas ativas
+    const mrr = activeSubs.reduce((acc, sub) => {
+        const plan = pl.find(x => x.id === sub.plan_id);
+        return acc + (plan ? Number(plan.price) : 0);
+    }, 0);
     
     const today = new Date().toISOString().split('T')[0];
     const todayTotal = p
@@ -56,6 +66,32 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ currentAdminId }
     });
   };
 
+  const calculateChartData = (s: Subscription[], pl: Plan[]) => {
+    const days = [];
+    const data = [];
+    
+    // Gera os últimos 7 dias
+    for (let i = 6; i >= 0; i--) {
+        const d = new Date();
+        d.setDate(d.getDate() - i);
+        days.push(d.toISOString().split('T')[0]);
+    }
+
+    // Calcula MRR histórico para cada dia
+    for (const day of days) {
+        const dailyMRR = s.reduce((acc, sub) => {
+            // Verifica se a assinatura estava ativa naquele dia
+            if (sub.start_date <= day && sub.end_date >= day) {
+                const plan = pl.find(x => x.id === sub.plan_id);
+                return acc + (plan ? Number(plan.price) : 0);
+            }
+            return acc;
+        }, 0);
+        data.push({ day, value: dailyMRR });
+    }
+    setChartData(data);
+  };
+
   useEffect(() => {
     fetchData();
   }, []);
@@ -67,6 +103,8 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ currentAdminId }
     (u.name.toLowerCase().includes(searchTerm.toLowerCase()) || 
      u.email.toLowerCase().includes(searchTerm.toLowerCase()))
   );
+
+  const maxChartValue = Math.max(...chartData.map(d => d.value)) || 100;
 
   if (loading) {
     return (
@@ -99,7 +137,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ currentAdminId }
       </div>
 
       {/* KPI Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
+      <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
         <div className="bg-slate-800 border border-slate-700 rounded-xl p-6 shadow-lg">
           <p className="text-slate-400 text-sm mb-1 uppercase font-bold tracking-wider">Base de Usuários</p>
           <p className="text-3xl font-bold text-white">{stats.users.toLocaleString()}</p>
@@ -113,6 +151,28 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ currentAdminId }
         <div className="bg-slate-800 border border-slate-700 rounded-xl p-6 shadow-lg">
           <p className="text-slate-400 text-sm mb-1 uppercase font-bold tracking-wider">Entradas Hoje</p>
           <p className="text-3xl font-bold text-green-500">R$ {stats.paymentsToday.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</p>
+        </div>
+
+        {/* Mini Chart */}
+        <div className="bg-slate-800 border border-slate-700 rounded-xl p-4 shadow-lg flex flex-col justify-between">
+             <div className="flex justify-between items-center mb-2">
+                 <span className="text-[10px] font-bold uppercase text-slate-400">Evolução MRR (7 dias)</span>
+             </div>
+             <div className="flex items-end gap-2 h-16 pt-2">
+                {chartData.map((d, i) => (
+                    <div key={i} className="flex-1 flex flex-col items-center group relative cursor-help">
+                        {/* Tooltip */}
+                        <div className="absolute bottom-full mb-1 hidden group-hover:block bg-slate-950 text-white text-[10px] px-2 py-1 rounded border border-slate-700 whitespace-nowrap z-10">
+                            {d.day.split('-').reverse().slice(0, 2).join('/')}: R$ {d.value.toFixed(2)}
+                        </div>
+                        {/* Bar */}
+                        <div 
+                           className="w-full bg-blue-600 rounded-t-sm opacity-60 hover:opacity-100 transition-all"
+                           style={{ height: `${(d.value / (maxChartValue || 1)) * 100}%` }}
+                        ></div>
+                    </div>
+                ))}
+             </div>
         </div>
       </div>
 
@@ -158,7 +218,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ currentAdminId }
                     <td className="px-6 py-4">
                       {sub ? (
                         <span className="bg-slate-900 border border-slate-600 text-slate-300 text-[10px] px-2 py-1 rounded uppercase font-bold tracking-wider">
-                          {sub.plan_id.substring(0, 8)}
+                          {sub.plan_id.substring(0, 15)}
                         </span>
                       ) : (
                         <span className="text-slate-600 italic">Sem Plano</span>

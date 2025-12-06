@@ -7,7 +7,7 @@ interface DocumentationProps {
 type TabType = 'database' | 'backend' | 'frontend' | 'ai-core' | 'deploy';
 
 export const Documentation: React.FC<DocumentationProps> = ({ onClose }) => {
-  const [activeTab, setActiveTab] = useState<TabType>('frontend');
+  const [activeTab, setActiveTab] = useState<TabType>('database');
 
   const CopyBlock = ({ title, code, lang = 'bash', warning = false }: { title: string, code: string, lang?: string, warning?: boolean }) => (
     <div className={`mb-8 rounded-lg overflow-hidden border shadow-xl ${warning ? 'border-red-800' : 'border-slate-700'}`}>
@@ -73,9 +73,9 @@ export const Documentation: React.FC<DocumentationProps> = ({ onClose }) => {
           {activeTab === 'database' && (
             <div className="animate-fade-in space-y-6">
               <div className="bg-slate-900 p-6 rounded-lg border border-slate-700 mb-6">
-                <h2 className="text-2xl font-bold text-white mb-2">1. Schema PostgreSQL & Data Source</h2>
+                <h2 className="text-2xl font-bold text-white mb-2">1. Schema PostgreSQL Completo (v3.0)</h2>
                 <p className="text-slate-400">
-                    O sistema utiliza PostgreSQL com a extensão <code>pgcrypto</code> para geração de UUIDs. Execute este script para criar todas as tabelas e dados iniciais.
+                    O sistema utiliza PostgreSQL com a extensão <code>pgcrypto</code> para geração de UUIDs. Execute este script para criar todas as tabelas e popular os dados iniciais de Planos e Plugins.
                 </p>
               </div>
 
@@ -96,12 +96,13 @@ export const query = (text, params) => pool.query(text, params);
                 `}
               />
 
-              <h3 className="text-white font-bold mb-4">Script SQL Completo (Schema + Seed)</h3>
-              <p className="text-sm text-slate-400 mb-4">Utilize o arquivo <code>database_schema.sql</code> na raiz do projeto ou copie o conteúdo abaixo:</p>
+              <h3 className="text-white font-bold mb-4">Script SQL de Inicialização</h3>
+              <p className="text-sm text-slate-400 mb-4">Copie e execute o conteúdo abaixo no seu cliente SQL (pgAdmin, DBeaver ou psql) para restaurar a estrutura completa.</p>
               <CopyBlock 
-                title="database_schema.sql" 
+                title="database_complete.sql" 
                 lang="sql"
                 code={`
+-- Habilitar extensão para UUIDs
 CREATE EXTENSION IF NOT EXISTS "pgcrypto";
 
 -- 1. Users & Auth
@@ -114,34 +115,34 @@ CREATE TABLE IF NOT EXISTS users (
     created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
 );
 
--- 2. SaaS Plans
+-- 2. SaaS Plans (Planos)
 CREATE TABLE IF NOT EXISTS plans (
-    id VARCHAR(50) PRIMARY KEY,
+    id VARCHAR(50) PRIMARY KEY, -- ex: 'starter', 'pro'
     name VARCHAR(100) NOT NULL,
     price DECIMAL(10, 2) NOT NULL,
     description TEXT
 );
 
--- 3. Plugins
+-- 3. Plugins (Marketplace)
 CREATE TABLE IF NOT EXISTS plugins (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     name VARCHAR(100) NOT NULL,
     description TEXT,
     version VARCHAR(20) DEFAULT '1.0.0',
-    icon VARCHAR(50),
-    status VARCHAR(50) DEFAULT 'available',
+    icon VARCHAR(50), -- Emoji ou URL
+    status VARCHAR(50) DEFAULT 'available', -- 'available', 'installed', 'active'
     category VARCHAR(50) DEFAULT 'utility',
     price DECIMAL(10, 2) DEFAULT 0.00
 );
 
--- 4. Plan Plugins (Relation)
+-- 4. Plan Plugins Relation (Quais planos acessam quais plugins)
 CREATE TABLE IF NOT EXISTS plan_plugins (
     plan_id VARCHAR(50) REFERENCES plans(id) ON DELETE CASCADE,
     plugin_id UUID REFERENCES plugins(id) ON DELETE CASCADE,
     PRIMARY KEY (plan_id, plugin_id)
 );
 
--- 5. Subscriptions
+-- 5. Subscriptions (Assinaturas)
 CREATE TABLE IF NOT EXISTS subscriptions (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     user_id UUID REFERENCES users(id) ON DELETE CASCADE,
@@ -152,7 +153,7 @@ CREATE TABLE IF NOT EXISTS subscriptions (
     created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
 );
 
--- 6. Monitoring Config
+-- 6. Monitoring Config (Configurações do Cliente)
 CREATE TABLE IF NOT EXISTS monitoring_configs (
     user_id UUID PRIMARY KEY REFERENCES users(id) ON DELETE CASCADE,
     keywords JSONB DEFAULT '[]',
@@ -162,7 +163,7 @@ CREATE TABLE IF NOT EXISTS monitoring_configs (
     updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
 );
 
--- 7. Master Items (AI Results)
+-- 7. Master Items (Resultados da IA)
 CREATE TABLE IF NOT EXISTS master_items (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     user_id UUID REFERENCES users(id) ON DELETE CASCADE,
@@ -173,7 +174,7 @@ CREATE TABLE IF NOT EXISTS master_items (
     created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
 );
 
--- 8. Payments
+-- 8. Payments (Financeiro)
 CREATE TABLE IF NOT EXISTS payments (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     subscription_id UUID REFERENCES subscriptions(id) ON DELETE SET NULL,
@@ -185,7 +186,7 @@ CREATE TABLE IF NOT EXISTS payments (
     created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
 );
 
--- 9. Audit Logs (Gemini Usage)
+-- 9. Audit Logs (Consumo Gemini API)
 CREATE TABLE IF NOT EXISTS requests_log (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     user_id UUID REFERENCES users(id) ON DELETE SET NULL,
@@ -197,16 +198,32 @@ CREATE TABLE IF NOT EXISTS requests_log (
     timestamp TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
 );
 
--- SEED DATA --
-INSERT INTO plans (id, name, price, description) VALUES
-('starter', 'Starter Plan', 99.00, 'Basic Monitoring'),
-('pro', 'Enterprise Pro', 299.00, 'AI Advanced');
+-- SEED DATA (Dados Iniciais) --
 
+-- Inserir Planos Padrão
+INSERT INTO plans (id, name, price, description) VALUES
+('starter', 'Starter Plan', 99.00, 'Monitoramento básico para pequenas operações.'),
+('pro', 'Enterprise Pro', 299.00, 'IA Avançada, Tempo Real e Suporte Prioritário.')
+ON CONFLICT (id) DO NOTHING;
+
+-- Inserir Plugin de Raio-X Administrativo
+-- Usamos um UUID fixo para garantir idempotência no seed, mas em prod seria aleatório
+INSERT INTO plugins (id, name, description, version, icon, status, category, price) VALUES
+('a0eebc99-9c0b-4ef8-bb6d-6bb9bd380a99', 'Raio-X Administrativo', 'Consulta automatizada de estrutura governamental (Prefeito, Câmara, Secretariado).', '1.0.0', '🏛️', 'active', 'utility', 0.00)
+ON CONFLICT (id) DO NOTHING;
+
+-- Vincular Plugin ao Plano Pro
+INSERT INTO plan_plugins (plan_id, plugin_id) VALUES
+('pro', 'a0eebc99-9c0b-4ef8-bb6d-6bb9bd380a99')
+ON CONFLICT DO NOTHING;
+
+-- Inserir Usuários (Senha padrão: 123456 -> Hash Bcrypt)
 INSERT INTO users (id, name, email, password_hash, role) VALUES
 ('a0eebc99-9c0b-4ef8-bb6d-6bb9bd380a11', 'Admin Master', 'admin@sie.pro', '$2a$10$X7Xk5y5n5j5k5l5m5n5o5p5q5r5s5t5u5v5w5x5y5z5A5B5C5D5E', 'admin'),
 ('b1eebc99-9c0b-4ef8-bb6d-6bb9bd380a22', 'Acme Corp', 'client@acme.com', '$2a$10$X7Xk5y5n5j5k5l5m5n5o5p5q5r5s5t5u5v5w5x5y5z5A5B5C5D5E', 'client')
-ON CONFLICT DO NOTHING;
+ON CONFLICT (id) DO NOTHING;
 
+-- Inserir Assinatura para o Cliente
 INSERT INTO subscriptions (user_id, plan_id, status, end_date) VALUES
 ('b1eebc99-9c0b-4ef8-bb6d-6bb9bd380a22', 'pro', 'active', CURRENT_DATE + INTERVAL '30 days')
 ON CONFLICT DO NOTHING;

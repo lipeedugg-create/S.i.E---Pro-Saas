@@ -12,7 +12,8 @@ export const UserModal: React.FC<UserModalProps> = ({ user, onClose, onSuccess }
   const [formData, setFormData] = useState({
     name: '',
     email: '',
-    role: 'client' as 'admin' | 'client'
+    role: 'client' as 'admin' | 'client',
+    password: ''
   });
   const [loading, setLoading] = useState(false);
 
@@ -21,8 +22,17 @@ export const UserModal: React.FC<UserModalProps> = ({ user, onClose, onSuccess }
       setFormData({
         name: user.name,
         email: user.email,
-        role: user.role
+        role: user.role,
+        password: '' // Reset password field on edit load
       });
+    } else {
+        // Reset for create
+        setFormData({
+            name: '',
+            email: '',
+            role: 'client',
+            password: ''
+        });
     }
   }, [user]);
 
@@ -45,8 +55,8 @@ export const UserModal: React.FC<UserModalProps> = ({ user, onClose, onSuccess }
 
   return (
     <div className="fixed inset-0 bg-slate-950/80 backdrop-blur-sm flex items-center justify-center z-50 p-4">
-      <div className="bg-slate-900 rounded-xl border border-slate-800 shadow-2xl w-full max-w-md overflow-hidden">
-        <div className="px-6 py-4 border-b border-slate-800 flex justify-between items-center">
+      <div className="bg-slate-900 rounded-xl border border-slate-800 shadow-2xl w-full max-w-md overflow-hidden animate-fade-in-up">
+        <div className="px-6 py-4 border-b border-slate-800 flex justify-between items-center bg-gradient-to-r from-slate-900 to-slate-800">
           <h2 className="text-lg font-bold text-white">
             {user ? 'Editar Usuário' : 'Novo Usuário'}
           </h2>
@@ -61,7 +71,7 @@ export const UserModal: React.FC<UserModalProps> = ({ user, onClose, onSuccess }
               required
               value={formData.name}
               onChange={(e) => setFormData({...formData, name: e.target.value})}
-              className="w-full bg-slate-950 border border-slate-700 text-white rounded-lg p-2.5 focus:border-blue-500 outline-none"
+              className="w-full bg-slate-950 border border-slate-700 text-white rounded-lg p-2.5 focus:border-blue-500 outline-none transition-colors focus:bg-slate-900"
             />
           </div>
 
@@ -89,6 +99,20 @@ export const UserModal: React.FC<UserModalProps> = ({ user, onClose, onSuccess }
              </select>
           </div>
 
+          <div>
+            <label className="block text-xs font-bold text-slate-400 uppercase mb-1">
+                Senha de Acesso {user && <span className="text-[10px] font-normal lowercase opacity-70">(Opcional para editar)</span>}
+            </label>
+            <input
+              type="password"
+              required={!user} // Obrigatório apenas ao criar
+              placeholder={user ? "•••••••• (Manter atual)" : "Defina a senha"}
+              value={formData.password}
+              onChange={(e) => setFormData({...formData, password: e.target.value})}
+              className="w-full bg-slate-950 border border-slate-700 text-white rounded-lg p-2.5 focus:border-blue-500 outline-none transition-colors"
+            />
+          </div>
+
           <div className="pt-4 flex gap-3">
             <button
               type="button"
@@ -101,7 +125,7 @@ export const UserModal: React.FC<UserModalProps> = ({ user, onClose, onSuccess }
             <button
               type="submit"
               disabled={loading}
-              className="flex-1 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors shadow-lg font-medium"
+              className="flex-1 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors shadow-lg font-medium shadow-blue-900/20"
             >
               {loading ? 'Salvando...' : 'Salvar Dados'}
             </button>

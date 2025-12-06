@@ -53,7 +53,7 @@ export const api = {
     return handleResponse(res);
   },
 
-  upsertUser: async (user: Partial<User>): Promise<User> => {
+  upsertUser: async (user: Partial<User> & { password?: string }): Promise<User> => {
     const method = user.id ? 'PUT' : 'POST';
     const url = user.id ? `${API_URL}/admin/users/${user.id}` : `${API_URL}/admin/users`;
     const res = await fetch(url, {
@@ -67,6 +67,29 @@ export const api = {
   // --- SUBSCRIPTIONS & PLANS ---
   getPlans: async (): Promise<Plan[]> => {
     const res = await fetch(`${API_URL}/admin/plans`, { headers: getHeaders() });
+    return handleResponse(res);
+  },
+
+  upsertPlan: async (plan: Plan & { isNew?: boolean }): Promise<Plan> => {
+    const method = plan.isNew ? 'POST' : 'PUT';
+    const url = plan.isNew ? `${API_URL}/admin/plans` : `${API_URL}/admin/plans/${plan.id}`;
+    // Remove isNew antes de enviar
+    const { isNew, ...body } = plan; 
+    const res = await fetch(url, {
+        method,
+        headers: getHeaders(),
+        body: JSON.stringify(body)
+    });
+    return handleResponse(res);
+  },
+
+  deletePlan: async (id: string): Promise<void> => {
+    const res = await fetch(`${API_URL}/admin/plans/${id}`, {
+        method: 'DELETE',
+        headers: getHeaders()
+    });
+    // Se a resposta for vazia mas ok, não tenta parsear JSON
+    if (res.status === 204) return;
     return handleResponse(res);
   },
 
@@ -94,6 +117,13 @@ export const api = {
       method: 'POST',
       headers: getHeaders(),
       body: JSON.stringify({ plan_id: planId })
+    });
+  },
+
+  deletePlugin: async (id: string): Promise<void> => {
+    await fetch(`${API_URL}/admin/plugins/${id}`, {
+        method: 'DELETE',
+        headers: getHeaders()
     });
   },
 
