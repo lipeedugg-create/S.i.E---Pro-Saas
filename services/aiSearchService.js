@@ -1,4 +1,4 @@
-import { GoogleGenAI } from "@google/genai";
+import { GoogleGenAI, Type } from "@google/genai";
 import { query } from '../config/db.js';
 
 const apiKey = process.env.API_KEY;
@@ -11,11 +11,13 @@ const PLUGIN_ID = 'a0eebc99-9c0b-4ef8-bb6d-6bb9bd380a99';
 const DEFAULT_SYSTEM_PROMPT = `
     Você é o SISTEMA SIE (Strategic Intelligence Enterprise).
     Sua tarefa é gerar um relatório de transparência pública sobre a administração de uma cidade brasileira.
+    Busque dados reais e atualizados.
 `;
 
 const DEFAULT_NEGATIVE_PROMPT = `
+    - Não invente nomes de pessoas.
+    - Se não encontrar uma informação específica, deixe o campo como "Não identificado" ou array vazio, não invente.
     - Não use markdown no JSON.
-    - Não invente dados (alucinação) se não tiver certeza, use estimativas claras.
 `;
 
 const getPluginConfig = async () => {
@@ -38,50 +40,90 @@ export const searchCityAdmin = async (city) => {
     try {
         // 1. Carrega configuração dinâmica do banco
         const config = await getPluginConfig();
-        const systemPrompt = config.systemPrompt || DEFAULT_SYSTEM_PROMPT;
-        const negativePrompt = config.negativePrompt || DEFAULT_NEGATIVE_PROMPT;
+        const systemPromptDB = config.systemPrompt || DEFAULT_SYSTEM_PROMPT;
+        const negativePromptDB = config.negativePrompt || DEFAULT_NEGATIVE_PROMPT;
 
-        const prompt = `
-            ${systemPrompt}
+        // 2. Monta a System Instruction (Autoridade Máxima)
+        const combinedSystemInstruction = `
+            ${systemPromptDB}
             
-            CIDADE ALVO: ${city} (Brasil).
-
-            DADOS NECESSÁRIOS (ESTRUTURA):
-            1. Prefeito Atual (Nome, Partido, Cargos Anteriores na carreira)
-            2. Vice-Prefeito (Nome, Partido)
-            3. Vereadores (Liste pelo menos 5 principais ou mesa diretora, com seus partidos e, se possível, cargos anteriores)
-            4. Funcionários Públicos Chave (Secretários Municipais ex: Saúde, Educação, Obras). Inclua Nome, Lotação (Secretaria), Vínculo (Comissionado/Efetivo) e Salário Estimado (baseado na média de mercado para o porte da cidade ou dados públicos conhecidos).
-
-            FORMATO DE RESPOSTA (JSON OBRIGATÓRIO E EXATO):
-            {
-                "city": "${city}",
-                "mayor": { "name": "...", "role": "Prefeito", "party": "...", "past_roles": ["..."] },
-                "vice_mayor": { "name": "...", "role": "Vice-Prefeito", "party": "...", "past_roles": [] },
-                "councilors": [
-                    { "name": "...", "role": "Vereador", "party": "...", "past_roles": ["..."] }
-                ],
-                "key_servants": [
-                    { "name": "...", "department": "Secretaria de X", "role_type": "Comissionado", "estimated_salary": "R$ X.XXX,XX" }
-                ],
-                "last_updated": "Data atual"
-            }
-            
-            RESTRIÇÕES DE RESPOSTA:
-            ${negativePrompt}
-            - Responda APENAS o JSON. 
+            REGRAS RESTRITIVAS (NEGATIVE PROMPT):
+            ${negativePromptDB}
         `;
 
+        // 3. Define o Schema Rígido (O modelo NÃO pode fugir dessa estrutura)
+        const outputSchema = {
+            type: Type.OBJECT,
+            properties: {
+                city: { type: Type.STRING, description: "Nome da cidade pesquisada" },
+                last_updated: { type: Type.STRING, description: "Data da informação (hoje)" },
+                mayor: {
+                    type: Type.OBJECT,
+                    properties: {
+                        name: { type: Type.STRING },
+                        role: { type: Type.STRING },
+                        party: { type: Type.STRING },
+                        past_roles: { type: Type.ARRAY, items: { type: Type.STRING } }
+                    },
+                    required: ["name", "party"]
+                },
+                vice_mayor: {
+                    type: Type.OBJECT,
+                    properties: {
+                        name: { type: Type.STRING },
+                        role: { type: Type.STRING },
+                        party: { type: Type.STRING },
+                        past_roles: { type: Type.ARRAY, items: { type: Type.STRING } }
+                    }
+                },
+                councilors: {
+                    type: Type.ARRAY,
+                    description: "Lista de vereadores principais ou mesa diretora",
+                    items: {
+                        type: Type.OBJECT,
+                        properties: {
+                            name: { type: Type.STRING },
+                            role: { type: Type.STRING },
+                            party: { type: Type.STRING },
+                            past_roles: { type: Type.ARRAY, items: { type: Type.STRING } }
+                        }
+                    }
+                },
+                key_servants: {
+                    type: Type.ARRAY,
+                    description: "Secretários municipais e cargos de confiança",
+                    items: {
+                        type: Type.OBJECT,
+                        properties: {
+                            name: { type: Type.STRING },
+                            department: { type: Type.STRING },
+                            role_type: { type: Type.STRING },
+                            estimated_salary: { type: Type.STRING }
+                        }
+                    }
+                }
+            },
+            required: ["city", "mayor", "councilors", "key_servants"]
+        };
+
+        // 4. Executa a geração com Search Grounding + Schema Enforcement
+        // Usamos gemini-2.5-flash com googleSearch para garantir dados reais.
         const response = await ai.models.generateContent({
             model: 'gemini-2.5-flash',
-            contents: prompt,
+            contents: `Pesquise dados oficiais atualizados e gere o relatório administrativo para a cidade de: ${city} (Brasil).`,
             config: {
+                systemInstruction: combinedSystemInstruction,
                 responseMimeType: 'application/json',
-                temperature: 0.1 // Temperatura mínima para reduzir alucinações
+                responseSchema: outputSchema,
+                temperature: 0.1, // Baixa temperatura para precisão factual
+                tools: [{ googleSearch: {} }] // Força uso de dados reais da web
             }
         });
 
-        // Tratamento robusto para remover Markdown caso o modelo inclua
+        // 5. Processamento e Validação da Resposta
         let textResponse = response.text;
+        
+        // Safety Clean (embora responseSchema evite markdown, garantimos)
         if (textResponse.includes('```json')) {
             textResponse = textResponse.replace(/```json/g, '').replace(/```/g, '');
         } else if (textResponse.includes('```')) {
@@ -89,15 +131,21 @@ export const searchCityAdmin = async (city) => {
         }
 
         const data = JSON.parse(textResponse.trim());
+
+        // Validação Lógica Básica (Fail-safe)
+        if (!data.mayor?.name || data.mayor.name === "Não identificado") {
+             // Opcional: Logar que a IA não encontrou dados satisfatórios
+             console.warn(`Alerta de baixa confiança para cidade: ${city}`);
+        }
         
-        // Cálculo de custo aproximado
-        const usage = response.usageMetadata;
+        // Cálculo de custo
+        const usage = response.usageMetadata || { promptTokenCount: 0, candidatesTokenCount: 0 };
         const cost = (usage.promptTokenCount / 1000000 * 0.10) + (usage.candidatesTokenCount / 1000000 * 0.30);
 
         return { data, cost, tokens: { in: usage.promptTokenCount, out: usage.candidatesTokenCount } };
 
     } catch (error) {
         console.error("AI Search Error:", error);
-        throw new Error("Falha ao processar inteligência governamental. Tente novamente.");
+        throw new Error("Falha na inteligência governamental. O sistema recusou a resposta por inconsistência.");
     }
 };
