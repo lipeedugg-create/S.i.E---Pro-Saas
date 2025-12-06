@@ -11,30 +11,40 @@ const JWT_SECRET = process.env.JWT_SECRET || 'sie-secret-key-change-in-prod';
 router.post('/login', async (req, res) => {
   const { email, password } = req.body;
 
+  console.log(`🔑 Tentativa de login para: ${email}`);
+
   try {
     const result = await query('SELECT * FROM users WHERE email = $1', [email]);
     
     if (result.rows.length === 0) {
-      return res.status(401).json({ message: 'Credenciais inválidas' });
+      console.log(`❌ Usuário não encontrado: ${email}`);
+      return res.status(401).json({ message: 'Credenciais inválidas (User not found)' });
     }
 
     const user = result.rows[0];
 
     if (user.status === 'inactive' || user.status === 'suspended') {
-        return res.status(403).json({ message: 'Conta desativada ou suspensa. Contate o administrador.' });
+        console.log(`🚫 Usuário bloqueado: ${email} (${user.status})`);
+        return res.status(403).json({ message: 'Conta desativada ou suspensa.' });
     }
 
-    const isMatch = await bcrypt.compare(password, user.password_hash).catch(() => false);
+    const isMatch = await bcrypt.compare(password, user.password_hash).catch(err => {
+        console.error("Bcrypt Error:", err);
+        return false;
+    });
     const isDevMatch = password === '123456'; 
 
     if (!isMatch && !isDevMatch) {
-      return res.status(401).json({ message: 'Credenciais inválidas' });
+      console.log(`❌ Senha incorreta para: ${email}`);
+      return res.status(401).json({ message: 'Credenciais inválidas (Password mismatch)' });
     }
+
+    console.log(`✅ Login bem sucedido: ${email} (${user.role})`);
 
     try {
         await query('UPDATE users SET last_login = CURRENT_TIMESTAMP WHERE id = $1', [user.id]);
     } catch(e) {
-        console.error("Erro ao atualizar last_login", e);
+        console.error("Erro não-bloqueante ao atualizar last_login", e.message);
     }
 
     const token = jwt.sign(
@@ -55,8 +65,9 @@ router.post('/login', async (req, res) => {
     });
 
   } catch (error) {
-    console.error(error);
-    res.status(500).json({ message: 'Erro interno do servidor' });
+    console.error(`💥 Erro interno no login: ${error.message}`);
+    // Se for erro de conexão DB, retorna 500
+    res.status(500).json({ message: `Erro interno do servidor: ${error.message}` });
   }
 });
 

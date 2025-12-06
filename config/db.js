@@ -19,20 +19,27 @@ const buildConnectionString = () => {
 };
 
 const connectionString = buildConnectionString();
-const isProduction = process.env.NODE_ENV === 'production';
 
-// Detecta se o banco está na mesma máquina (localhost) para desativar SSL
-const isLocalhost = connectionString.includes('localhost') || connectionString.includes('127.0.0.1');
+// Detecta se é localhost para definir SSL
+// Se tiver DATABASE_URL (Ambiente Cloud), geralmente precisa de SSL
+const isCloudConnection = !!process.env.DATABASE_URL && !connectionString.includes('localhost') && !connectionString.includes('127.0.0.1');
 
 const pool = new Pool({
   connectionString: connectionString,
-  // SSL necessário para bancos em nuvem (Neon/Render/Supabase), mas deve ser false para localhost/VPS Docker
-  ssl: (isProduction && !isLocalhost) ? { rejectUnauthorized: false } : false,
-  connectionTimeoutMillis: 5000, // Timeout de 5s para falhar rápido se banco estiver offline
+  // SSL permissivo para evitar erros de "self signed certificate" em bancos cloud gratuitos/dev
+  ssl: isCloudConnection ? { rejectUnauthorized: false } : false,
+  connectionTimeoutMillis: 10000, // Aumentado para 10s
 });
 
 pool.on('error', (err) => {
-  console.error('Erro crítico no Pool do PostgreSQL:', err);
+  console.error('❌ Erro Crítico no Pool do PostgreSQL:', err.message);
 });
 
-export const query = (text, params) => pool.query(text, params);
+export const query = async (text, params) => {
+    try {
+        return await pool.query(text, params);
+    } catch (error) {
+        console.error(`❌ Erro na Query SQL: ${error.message}`);
+        throw error;
+    }
+};

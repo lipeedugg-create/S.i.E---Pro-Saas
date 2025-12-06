@@ -2,12 +2,16 @@ import { query } from './db.js';
 import bcrypt from 'bcryptjs';
 
 export const initDatabase = async () => {
-  console.log('🔄 Verificando estrutura do Banco de Dados...');
+  console.log('🔄 Inicializando Banco de Dados...');
 
-  const sql = `
-    -- Habilitar UUIDs
-    CREATE EXTENSION IF NOT EXISTS "pgcrypto";
+  // 1. Tentar habilitar UUIDs (Pode falhar se não for superuser, mas Postgres 13+ não precisa disso para gen_random_uuid às vezes)
+  try {
+      await query('CREATE EXTENSION IF NOT EXISTS "pgcrypto"');
+  } catch (e) {
+      console.warn('⚠️ Aviso: Não foi possível criar extensão pgcrypto. Se o Postgres for v13+, isso pode não ser um problema.', e.message);
+  }
 
+  const tableQueries = `
     -- 1. USERS
     CREATE TABLE IF NOT EXISTS users (
         id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -71,7 +75,7 @@ export const initDatabase = async () => {
         last_run_at TIMESTAMP WITH TIME ZONE
     );
 
-    -- 7. MASTER ITEMS (Results)
+    -- 7. MASTER ITEMS
     CREATE TABLE IF NOT EXISTS master_items (
         id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
         user_id UUID REFERENCES users(id) ON DELETE CASCADE,
@@ -94,7 +98,7 @@ export const initDatabase = async () => {
         created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
     );
 
-    -- 9. REQUESTS LOG
+    -- 9. LOGS
     CREATE TABLE IF NOT EXISTS requests_log (
         id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
         user_id UUID REFERENCES users(id) ON DELETE SET NULL,
@@ -108,9 +112,9 @@ export const initDatabase = async () => {
   `;
 
   try {
-    await query(sql);
+    await query(tableQueries);
     
-    // Seed Admin Default
+    // Seed Admin
     const adminEmail = 'admin@sie.pro';
     const checkAdmin = await query('SELECT id FROM users WHERE email = $1', [adminEmail]);
     
@@ -123,9 +127,11 @@ export const initDatabase = async () => {
             [adminEmail, hash]
         );
         console.log(`✅ Admin Default criado: ${adminEmail} / admin123`);
+    } else {
+        console.log('ℹ️  Admin user já existe.');
     }
 
-    // Seed Plugin Raio-X (Necessário para a demo funcionar)
+    // Seed Plugin
     const pluginId = 'a0eebc99-9c0b-4ef8-bb6d-6bb9bd380a99';
     const checkPlugin = await query('SELECT id FROM plugins WHERE id = $1', [pluginId]);
     if (checkPlugin.rows.length === 0) {
@@ -136,8 +142,9 @@ export const initDatabase = async () => {
         console.log('✅ Plugin Raio-X restaurado.');
     }
 
-    console.log('✅ Banco de Dados Inicializado com Sucesso.');
+    console.log('✅ Tabelas verificadas/criadas com sucesso.');
   } catch (err) {
-    console.error('❌ Erro na inicialização do DB:', err);
+    console.error('❌ FALHA FATAL NO INIT DB:', err.message);
+    // Não crashamos o servidor, mas logamos forte
   }
 };
