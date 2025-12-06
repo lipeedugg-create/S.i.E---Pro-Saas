@@ -19,9 +19,16 @@ const buildConnectionString = () => {
   return `postgres://${user}:${pass}@${host}:${port}/${dbName}`;
 };
 
+const connectionString = buildConnectionString();
+const isProduction = process.env.NODE_ENV === 'production';
+
+// Verifica se é localhost para evitar erros de SSL (comum em VPS onde o banco roda localmente)
+const isLocalhost = connectionString.includes('localhost') || connectionString.includes('127.0.0.1');
+
 const pool = new Pool({
-  connectionString: buildConnectionString(),
-  ssl: process.env.NODE_ENV === 'production' ? { rejectUnauthorized: false } : false
+  connectionString: connectionString,
+  // Habilita SSL apenas se for produção E NÃO for localhost
+  ssl: (isProduction && !isLocalhost) ? { rejectUnauthorized: false } : false
 });
 
 export const query = (text, params) => pool.query(text, params);
