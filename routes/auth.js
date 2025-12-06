@@ -5,11 +5,13 @@ import { query } from '../config/db.js';
 import { authenticate } from '../middleware/auth.js';
 
 const router = express.Router();
-const JWT_SECRET = process.env.JWT_SECRET || 'sie-secret-key-change-in-prod';
 
 // POST /api/auth/login
 router.post('/login', async (req, res) => {
   const { email, password } = req.body;
+  
+  // Leitura tardia da chave para evitar race condition do dotenv
+  const JWT_SECRET = process.env.JWT_SECRET || 'sie-secret-key-change-in-prod';
 
   console.log(`🔑 Tentativa de login para: ${email}`);
 

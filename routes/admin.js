@@ -5,7 +5,6 @@ import { query } from '../config/db.js';
 import { authenticate, authorizeAdmin } from '../middleware/auth.js';
 
 const router = express.Router();
-const JWT_SECRET = process.env.JWT_SECRET || 'sie-secret-key-change-in-prod';
 
 router.use(authenticate);
 router.use(authorizeAdmin);
@@ -13,16 +12,12 @@ router.use(authorizeAdmin);
 // --- USERS ---
 router.get('/users', async (req, res) => {
   try {
-    // Tenta selecionar colunas novas, se falhar (schema antigo), fallback
-    // Em prod, faríamos migration. Aqui usamos try/catch ou COALESCE se já estiver no SQL init.
-    // O init SQL foi atualizado na documentação, mas para garantir compatibilidade com DBs já rodando:
     const result = await query(`
         SELECT id, name, email, role, created_at, 
                status, phone, last_login 
         FROM users 
         ORDER BY created_at DESC
     `).catch(async () => {
-         // Fallback se colunas não existirem (apenas para garantir que não crasha se não rodou migration)
          return await query('SELECT id, name, email, role, created_at FROM users ORDER BY created_at DESC');
     });
     res.json(result.rows);
@@ -39,7 +34,6 @@ router.post('/users', async (req, res) => {
     const salt = await bcrypt.genSalt(10);
     const hash = await bcrypt.hash(pwd, salt);
     
-    // Tenta inserir com novos campos, se falhar, insere básico
     try {
         const result = await query(
           'INSERT INTO users (name, email, role, password_hash, phone, status) VALUES ($1, $2, $3, $4, $5, $6) RETURNING *',
@@ -79,12 +73,10 @@ router.put('/users/:id', async (req, res) => {
     queryParams.push(id);
     queryText += ' RETURNING *';
 
-    // Tratamento de erro se colunas não existirem no DB
     try {
         const result = await query(queryText, queryParams);
         res.json(result.rows[0]);
     } catch (e) {
-         // Fallback simples
          if (password) {
             await query('UPDATE users SET name=$1, email=$2, role=$3, password_hash=$4 WHERE id=$5', [name,email,role,queryParams[queryParams.length-2], id]);
          } else {
@@ -117,11 +109,9 @@ router.post('/users/:id/subscription', async (req, res) => {
     if (!plan_id) return res.status(400).json({ message: "Plan ID is required" });
 
     try {
-        // Verifica se já existe assinatura
         const existing = await query('SELECT * FROM subscriptions WHERE user_id = $1', [id]);
         
         if (existing.rows.length > 0) {
-            // Atualiza
             await query(
                 `UPDATE subscriptions 
                  SET plan_id = $1, status = 'active', 
@@ -130,7 +120,6 @@ router.post('/users/:id/subscription', async (req, res) => {
                 [plan_id, id]
             );
         } else {
-            // Cria Nova
             await query(
                 `INSERT INTO subscriptions (user_id, plan_id, status, start_date, end_date) 
                  VALUES ($1, $2, 'active', CURRENT_DATE, CURRENT_DATE + INTERVAL '30 days')`,
@@ -146,7 +135,6 @@ router.post('/users/:id/subscription', async (req, res) => {
 router.get('/users/:id/payments', async (req, res) => {
     const { id } = req.params;
     try {
-        // Pega subscription ID
         const subRes = await query('SELECT id FROM subscriptions WHERE user_id = $1', [id]);
         if(subRes.rows.length === 0) return res.json([]);
 
@@ -161,6 +149,8 @@ router.get('/users/:id/payments', async (req, res) => {
 // Impersonate User (Login As)
 router.post('/users/:id/impersonate', async (req, res) => {
   const { id } = req.params;
+  const JWT_SECRET = process.env.JWT_SECRET || 'sie-secret-key-change-in-prod';
+  
   try {
     const result = await query('SELECT * FROM users WHERE id = $1', [id]);
     if (result.rows.length === 0) {
@@ -168,7 +158,6 @@ router.post('/users/:id/impersonate', async (req, res) => {
     }
     const user = result.rows[0];
 
-    // Generate Token for this user
     const token = jwt.sign(
       { id: user.id, role: user.role, name: user.name },
       JWT_SECRET,
@@ -250,7 +239,6 @@ router.put('/plans/:id', async (req, res) => {
 router.delete('/plans/:id', async (req, res) => {
     const { id } = req.params;
     try {
-        // Verifica dependências antes de deletar
         const subCheck = await query('SELECT * FROM subscriptions WHERE plan_id = $1 LIMIT 1', [id]);
         if (subCheck.rows.length > 0) {
             return res.status(400).json({ message: 'Não é possível excluir: Existem assinaturas ativas neste plano.' });
@@ -277,17 +265,14 @@ router.post('/payments', async (req, res) => {
   const { subscription_id, amount, payment_date, reference_id, notes, admin_recorded_by } = req.body;
   
   try {
-    await query('BEGIN'); // Inicia Transação
+    await query('BEGIN'); 
 
-    // 1. Registra Pagamento
     const payResult = await query(
       `INSERT INTO payments (subscription_id, amount, payment_date, reference_id, notes, admin_recorded_by)
        VALUES ($1, $2, $3, $4, $5, $6) RETURNING *`,
       [subscription_id, amount, payment_date, reference_id, notes, admin_recorded_by]
     );
 
-    // 2. Renova Assinatura (+30 dias)
-    // Lógica: Se já venceu, conta a partir de hoje. Se não, soma ao final.
     await query(
       `UPDATE subscriptions 
        SET status = 'active',
@@ -299,7 +284,7 @@ router.post('/payments', async (req, res) => {
       [subscription_id]
     );
 
-    await query('COMMIT'); // Confirma
+    await query('COMMIT');
     res.json(payResult.rows[0]);
 
   } catch (err) {
@@ -321,7 +306,6 @@ router.get('/logs', async (req, res) => {
 // --- PLUGINS ---
 router.get('/plugins', async (req, res) => {
   try {
-    // Join para trazer o array de planos permitidos para cada plugin
     const queryText = `
         SELECT p.*, 
                COALESCE(json_agg(pp.plan_id) FILTER (WHERE pp.plan_id IS NOT NULL), '[]') as allowed_plans
@@ -358,7 +342,6 @@ router.patch('/plugins/:id/status', async (req, res) => {
     }
 });
 
-// NEW: Endpoint para atualizar configuração do plugin (Prompt)
 router.patch('/plugins/:id/config', async (req, res) => {
     const { id } = req.params;
     const { config } = req.body;
