@@ -1,7 +1,7 @@
 import express from 'express';
 import jwt from 'jsonwebtoken';
 import bcrypt from 'bcryptjs';
-import { query } from '../config/db.js';
+import { query, JWT_SECRET } from '../config/db.js'; // Importação Centralizada
 import { authenticate, authorizeAdmin } from '../middleware/auth.js';
 
 const router = express.Router();
@@ -41,6 +41,7 @@ router.post('/users', async (req, res) => {
         );
         res.json(result.rows[0]);
     } catch(e) {
+        // Fallback para schema antigo se necessário
         const result = await query(
             'INSERT INTO users (name, email, role, password_hash) VALUES ($1, $2, $3, $4) RETURNING *',
             [name, email, role, hash]
@@ -82,7 +83,7 @@ router.put('/users/:id', async (req, res) => {
          } else {
             await query('UPDATE users SET name=$1, email=$2, role=$3 WHERE id=$4', [name,email,role, id]);
          }
-         res.json({ message: "Update parcial realizado (Schema antigo detectado)" });
+         res.json({ message: "Update parcial realizado" });
     }
 
   } catch (err) {
@@ -101,7 +102,6 @@ router.patch('/users/:id/status', async (req, res) => {
     }
 });
 
-// Endpoint para atribuir/alterar plano
 router.post('/users/:id/subscription', async (req, res) => {
     const { id } = req.params;
     const { plan_id } = req.body;
@@ -146,10 +146,9 @@ router.get('/users/:id/payments', async (req, res) => {
     }
 });
 
-// Impersonate User (Login As)
+// Impersonate User (Login As) - AGORA USA CHAVE CENTRALIZADA
 router.post('/users/:id/impersonate', async (req, res) => {
   const { id } = req.params;
-  const JWT_SECRET = process.env.JWT_SECRET || 'sie-secret-key-change-in-prod';
   
   try {
     const result = await query('SELECT * FROM users WHERE id = $1', [id]);
@@ -158,6 +157,7 @@ router.post('/users/:id/impersonate', async (req, res) => {
     }
     const user = result.rows[0];
 
+    // Gera token compatível com o middleware 'authenticate'
     const token = jwt.sign(
       { id: user.id, role: user.role, name: user.name },
       JWT_SECRET,

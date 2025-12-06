@@ -1,26 +1,31 @@
 import jwt from 'jsonwebtoken';
-import dotenv from 'dotenv';
-
-// Garante que o dotenv seja lido neste módulo também, por segurança
-dotenv.config();
+import { JWT_SECRET } from '../config/db.js'; // Importação Centralizada
 
 export const authenticate = (req, res, next) => {
   const authHeader = req.headers.authorization;
   
   if (!authHeader) {
+    console.log(`⛔ Auth Failed [${req.path}]: Token não fornecido no header.`);
     return res.status(401).json({ message: 'Token não fornecido' });
   }
 
-  const token = authHeader.split(' ')[1];
+  const parts = authHeader.split(' ');
+  
+  if (parts.length !== 2) {
+     console.log(`⛔ Auth Failed [${req.path}]: Formato do header inválido.`);
+     return res.status(401).json({ message: 'Token erro de formato' });
+  }
+
+  const token = parts[1];
 
   try {
-    // Lemos a chave secreta DENTRO da requisição para garantir que o dotenv já carregou
-    const JWT_SECRET = process.env.JWT_SECRET || 'sie-secret-key-change-in-prod';
-    
+    // Valida usando a MESMA chave exportada pelo db.js
     const decoded = jwt.verify(token, JWT_SECRET);
     req.user = decoded;
     next();
   } catch (error) {
+    // Log detalhado para entender por que o usuário está sendo deslogado
+    console.error(`⛔ Auth Failed [${req.path}]: ${error.message}`); 
     return res.status(403).json({ message: 'Token inválido ou expirado' });
   }
 };

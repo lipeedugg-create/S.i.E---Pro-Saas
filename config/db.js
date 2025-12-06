@@ -1,7 +1,12 @@
 import pg from 'pg';
 import dotenv from 'dotenv';
 
+// Carrega variáveis de ambiente imediatamente
 dotenv.config();
+
+// --- SINGLE SOURCE OF TRUTH (Fonte Única da Verdade) ---
+// Exportamos a chave daqui para garantir que Login e Middleware usem O MESMO valor sempre.
+export const JWT_SECRET = process.env.JWT_SECRET || 'sie-secret-key-change-in-prod';
 
 const { Pool } = pg;
 
@@ -20,15 +25,12 @@ const buildConnectionString = () => {
 
 const connectionString = buildConnectionString();
 
-// Detecta se é localhost para definir SSL
-// Se tiver DATABASE_URL (Ambiente Cloud), geralmente precisa de SSL
 const isCloudConnection = !!process.env.DATABASE_URL && !connectionString.includes('localhost') && !connectionString.includes('127.0.0.1');
 
 const pool = new Pool({
   connectionString: connectionString,
-  // SSL permissivo para evitar erros de "self signed certificate" em bancos cloud gratuitos/dev
   ssl: isCloudConnection ? { rejectUnauthorized: false } : false,
-  connectionTimeoutMillis: 10000, // Aumentado para 10s
+  connectionTimeoutMillis: 10000,
 });
 
 pool.on('error', (err) => {

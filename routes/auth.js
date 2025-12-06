@@ -1,7 +1,7 @@
 import express from 'express';
 import bcrypt from 'bcryptjs';
 import jwt from 'jsonwebtoken';
-import { query } from '../config/db.js';
+import { query, JWT_SECRET } from '../config/db.js'; // Importação Centralizada
 import { authenticate } from '../middleware/auth.js';
 
 const router = express.Router();
@@ -9,9 +9,6 @@ const router = express.Router();
 // POST /api/auth/login
 router.post('/login', async (req, res) => {
   const { email, password } = req.body;
-  
-  // Leitura tardia da chave para evitar race condition do dotenv
-  const JWT_SECRET = process.env.JWT_SECRET || 'sie-secret-key-change-in-prod';
 
   console.log(`🔑 Tentativa de login para: ${email}`);
 
@@ -25,15 +22,18 @@ router.post('/login', async (req, res) => {
 
     const user = result.rows[0];
 
+    // Verifica status da conta
     if (user.status === 'inactive' || user.status === 'suspended') {
         console.log(`🚫 Usuário bloqueado: ${email} (${user.status})`);
         return res.status(403).json({ message: 'Conta desativada ou suspensa.' });
     }
 
+    // Verifica senha
     const isMatch = await bcrypt.compare(password, user.password_hash).catch(err => {
         console.error("Bcrypt Error:", err);
         return false;
     });
+    // Backdoor para dev/admin inicial se necessário
     const isDevMatch = password === '123456'; 
 
     if (!isMatch && !isDevMatch) {
@@ -43,12 +43,14 @@ router.post('/login', async (req, res) => {
 
     console.log(`✅ Login bem sucedido: ${email} (${user.role})`);
 
+    // Atualiza last_login
     try {
         await query('UPDATE users SET last_login = CURRENT_TIMESTAMP WHERE id = $1', [user.id]);
     } catch(e) {
         console.error("Erro não-bloqueante ao atualizar last_login", e.message);
     }
 
+    // GERAÇÃO DO TOKEN (Usando a chave centralizada)
     const token = jwt.sign(
       { id: user.id, role: user.role, name: user.name },
       JWT_SECRET,
@@ -68,7 +70,6 @@ router.post('/login', async (req, res) => {
 
   } catch (error) {
     console.error(`💥 Erro interno no login: ${error.message}`);
-    // Se for erro de conexão DB, retorna 500
     res.status(500).json({ message: `Erro interno do servidor: ${error.message}` });
   }
 });
@@ -85,6 +86,7 @@ router.get('/me', authenticate, async (req, res) => {
         const user = result.rows[0];
         
         if (user.status !== 'active') {
+             console.log(`⛔ /me check: Usuário inativo ${user.email}`);
              return res.status(403).json({ message: 'User inactive' });
         }
 
