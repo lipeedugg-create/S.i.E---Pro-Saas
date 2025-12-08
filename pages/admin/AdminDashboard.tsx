@@ -4,10 +4,10 @@ import { User, Subscription, Payment, Plan } from '../../types';
 import { PaymentModal } from '../../components/PaymentModal';
 
 interface AdminDashboardProps {
-  currentAdminId: string;
+  // currentAdminId removed
 }
 
-export const AdminDashboard: React.FC<AdminDashboardProps> = ({ currentAdminId }) => {
+export const AdminDashboard: React.FC<AdminDashboardProps> = () => {
   const [users, setUsers] = useState<User[]>([]);
   const [subs, setSubs] = useState<Subscription[]>([]);
   const [plans, setPlans] = useState<Plan[]>([]);
@@ -251,7 +251,6 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ currentAdminId }
         <PaymentModal
           user={selectedUser}
           subscription={getSubForUser(selectedUser.id)}
-          adminId={currentAdminId}
           onClose={() => setSelectedUser(null)}
           onSuccess={() => {
             setSelectedUser(null);

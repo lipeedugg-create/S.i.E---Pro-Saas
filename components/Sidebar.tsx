@@ -1,5 +1,5 @@
 import React from 'react';
-import { User } from '../types';
+import { User, Plugin } from '../types';
 
 interface SidebarProps {
   user: User;
@@ -8,9 +8,10 @@ interface SidebarProps {
   onLogout: () => void;
   isOpen: boolean;
   onCloseMobile: () => void;
+  plugins?: Plugin[]; // Lista de plugins ativos injetada pelo App
 }
 
-export const Sidebar: React.FC<SidebarProps> = ({ user, activePage, onNavigate, onLogout, isOpen, onCloseMobile }) => {
+export const Sidebar: React.FC<SidebarProps> = ({ user, activePage, onNavigate, onLogout, isOpen, onCloseMobile, plugins = [] }) => {
   const adminLinks = [
     { id: 'admin-dashboard', label: 'Visão Geral', iconPath: "M4 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2V6zM14 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2V6zM4 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2v-2zM14 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2v-2z" },
     { id: 'admin-users', label: 'Gestão de Usuários', iconPath: "M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197M13 7a4 4 0 11-8 0 4 4 0 018 0z" },
@@ -63,7 +64,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ user, activePage, onNavigate, 
               Navegação Principal
           </p>
           
-          <nav className="space-y-1">
+          <nav className="space-y-1 mb-8">
             {links.map((link) => {
               const isActive = activePage === link.id;
               return (
@@ -89,6 +90,37 @@ export const Sidebar: React.FC<SidebarProps> = ({ user, activePage, onNavigate, 
               );
             })}
           </nav>
+
+          {/* DYNAMIC PLUGINS SECTION */}
+          {plugins.length > 0 && (
+            <>
+              <p className="px-4 text-[11px] font-bold text-slate-600 uppercase tracking-wider mb-2">
+                  Plugins Instalados
+              </p>
+              <nav className="space-y-1">
+                {plugins.map((plugin) => {
+                  const isActive = activePage === `plugin-${plugin.id}`;
+                  return (
+                    <button
+                      key={plugin.id}
+                      onClick={() => {
+                        onNavigate(`plugin-${plugin.id}`);
+                        onCloseMobile();
+                      }}
+                      className={`w-full flex items-center gap-3 px-4 py-2.5 text-sm font-medium transition-all duration-200 rounded-lg group ${
+                        isActive
+                          ? 'bg-gradient-to-r from-purple-900/40 to-transparent text-white border-l-4 border-purple-500 rounded-l-none'
+                          : 'text-slate-400 hover:bg-slate-900 hover:text-slate-200 border-l-4 border-transparent rounded-l-none'
+                      }`}
+                    >
+                      <span className="text-lg">{plugin.icon || '🧩'}</span>
+                      <span className="truncate">{plugin.name}</span>
+                    </button>
+                  );
+                })}
+              </nav>
+            </>
+          )}
         </div>
 
         {/* Footer Area: Docs & Profile */}

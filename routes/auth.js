@@ -6,16 +6,35 @@ import { authenticate } from '../middleware/auth.js';
 
 const router = express.Router();
 
-// GET /api/auth/plans (Public) - MUST BE AT THE TOP
+// GET /api/auth/plans (Public)
 router.get('/plans', async (req, res) => {
     try {
-        // Fallback safety: return empty array if table doesn't exist or query fails
         const result = await query('SELECT * FROM plans ORDER BY price ASC');
         res.json(result.rows);
     } catch (err) {
-        console.error("Database error fetching plans (returning empty list):", err.message);
-        // Return 200 OK with empty array to prevent frontend crash ("Erro ao carregar planos")
-        res.json([]); 
+        console.error("Database error fetching plans:", err.message);
+        res.status(500).json({ message: "Erro ao buscar planos do banco de dados." });
+    }
+});
+
+// POST /api/auth/contact (Public)
+router.post('/contact', async (req, res) => {
+    const { name, email, subject, message } = req.body;
+    
+    if (!name || !email || !message) {
+        return res.status(400).json({ message: "Campos obrigatórios faltando." });
+    }
+
+    try {
+        await query(
+            `INSERT INTO contact_messages (name, email, subject, message) 
+             VALUES ($1, $2, $3, $4)`,
+            [name, email, subject, message]
+        );
+        res.json({ success: true, message: "Mensagem salva com sucesso." });
+    } catch (err) {
+        console.error("Contact Form Error:", err);
+        res.status(500).json({ message: "Erro ao salvar mensagem." });
     }
 });
 
@@ -63,55 +82,72 @@ router.post('/login', async (req, res) => {
 
   } catch (error) {
     console.error(`Login error: ${error.message}`);
-    res.status(500).json({ message: `Erro interno: ${error.message}` });
+    res.status(500).json({ message: "Erro interno no servidor." });
   }
 });
 
 // POST /api/auth/register
+// CRIAÇÃO REAL DE USUÁRIO COM PLANO E SENHA
 router.post('/register', async (req, res) => {
     const { name, email, password, phone, planId } = req.body;
 
+    // Validação básica
+    if (!name || !email || !password) {
+        return res.status(400).json({ message: "Dados incompletos." });
+    }
+
     try {
-        // 1. Check if user exists
+        // 1. Verifica duplicidade
         const check = await query('SELECT id FROM users WHERE email = $1', [email]);
         if (check.rows.length > 0) {
             return res.status(400).json({ message: 'Email já cadastrado.' });
         }
 
+        // 2. Hash da Senha
         const salt = await bcrypt.genSalt(10);
         const hash = await bcrypt.hash(password, salt);
 
+        // 3. Inicia Transação SQL (Atomicidade)
         await query('BEGIN');
 
+        // Cria Usuário
         const userRes = await query(
             `INSERT INTO users (name, email, password_hash, role, status, phone, last_login) 
              VALUES ($1, $2, $3, 'client', 'active', $4, CURRENT_TIMESTAMP) 
              RETURNING id, name, email, role`,
-            [name, email, hash, phone]
+            [name, email, hash, phone || null]
         );
         const newUser = userRes.rows[0];
 
-        await query(
+        // Cria Assinatura (Vincula ao plano escolhido)
+        const selectedPlan = planId || 'starter';
+        
+        // Verifica se o plano existe (Segurança de FK)
+        const planCheck = await query('SELECT id, price FROM plans WHERE id = $1', [selectedPlan]);
+        if (planCheck.rows.length === 0) {
+            throw new Error(`Plano inválido: ${selectedPlan}`);
+        }
+        const planPrice = planCheck.rows[0].price;
+
+        const subRes = await query(
             `INSERT INTO subscriptions (user_id, plan_id, status, start_date, end_date)
              VALUES ($1, $2, 'active', CURRENT_DATE, CURRENT_DATE + INTERVAL '30 days')
              RETURNING id`,
-            [newUser.id, planId || 'starter']
+            [newUser.id, selectedPlan]
         );
 
-        if (planId && planId !== 'starter') {
-             const planRes = await query('SELECT price FROM plans WHERE id = $1', [planId]);
-             const amount = planRes.rows[0]?.price || 0;
-             const subRes = await query('SELECT id FROM subscriptions WHERE user_id = $1', [newUser.id]);
-             
+        // Se não for plano Starter, registra um pagamento inicial "fictício" ou real para fins de registro
+        if (selectedPlan !== 'starter') {
              await query(
                 `INSERT INTO payments (subscription_id, amount, payment_date, reference_id, notes)
-                 VALUES ($1, $2, CURRENT_DATE, $3, 'Pagamento Inicial')`,
-                [subRes.rows[0].id, amount, `INIT-${Date.now()}`]
+                 VALUES ($1, $2, CURRENT_DATE, $3, 'Pagamento Inicial (Registro)')`,
+                [subRes.rows[0].id, planPrice, `INIT-${Date.now()}`]
              );
         }
 
         await query('COMMIT');
 
+        // Gera Token
         const token = jwt.sign(
             { id: newUser.id, role: newUser.role, name: newUser.name },
             JWT_SECRET,

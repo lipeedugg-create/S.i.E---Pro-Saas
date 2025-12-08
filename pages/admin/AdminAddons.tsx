@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { api } from '../../services/api';
 import { Plugin, Plan } from '../../types';
 import { PlanModal } from '../../components/PlanModal';
+import { ManualSaleModal } from '../../components/ManualSaleModal';
 
 export const AdminAddons: React.FC = () => {
   const [plugins, setPlugins] = useState<Plugin[]>([]);
@@ -11,6 +12,9 @@ export const AdminAddons: React.FC = () => {
   // States para CRUD de Planos
   const [isPlanModalOpen, setIsPlanModalOpen] = useState(false);
   const [editingPlan, setEditingPlan] = useState<Plan | null>(null);
+
+  // State para Venda Manual
+  const [sellingPlan, setSellingPlan] = useState<Plan | null>(null);
 
   const loadData = async () => {
     setLoading(true); // Re-enable loading on refresh for better UX feedback
@@ -143,12 +147,23 @@ export const AdminAddons: React.FC = () => {
                                 )}
                             </div>
 
-                            <div className="flex gap-2 justify-end border-t border-slate-800 pt-3 opacity-80 group-hover:opacity-100 transition-opacity">
+                            <div className="flex gap-2 justify-end border-t border-slate-800 pt-3 opacity-90 transition-opacity">
+                                {/* Buy Button for non-starter plans */}
+                                {plan.id !== 'starter' && (
+                                    <button 
+                                        onClick={() => setSellingPlan(plan)}
+                                        className="text-xs font-bold text-emerald-400 hover:text-white px-3 py-1.5 rounded hover:bg-emerald-600/20 transition-colors border border-emerald-900/30 hover:border-emerald-500/50 flex items-center gap-1 mr-auto"
+                                        title="Registrar Venda Manualmente"
+                                    >
+                                        <span>💰</span> COMPRAR (MANUAL)
+                                    </button>
+                                )}
+
                                 <button 
                                     onClick={() => handleEditPlan(plan)}
                                     className="text-xs font-bold text-blue-400 hover:text-white px-3 py-1.5 rounded hover:bg-blue-600/20 transition-colors border border-transparent hover:border-blue-500/30"
                                 >
-                                    EDITAR PACOTE
+                                    EDITAR
                                 </button>
                                 <button 
                                     onClick={() => handleDeletePlan(plan.id)}
@@ -170,7 +185,7 @@ export const AdminAddons: React.FC = () => {
               <span className="text-purple-500">⚡</span> Plugins Globais
             </h3>
             <p className="text-xs text-slate-400 mb-6 -mt-2">
-                Ative ou desative plugins no sistema. Para associá-los a um plano, use o botão "Editar Pacote" na coluna ao lado.
+                Ative ou desative plugins no sistema. Para associá-los a um plano, use o botão "Editar" na coluna ao lado.
             </p>
             
             {plugins.length === 0 ? (
@@ -230,6 +245,18 @@ export const AdminAddons: React.FC = () => {
              plugins={plugins}
              onClose={() => setIsPlanModalOpen(false)}
              onSuccess={handlePlanSuccess}
+          />
+      )}
+
+      {/* Manual Sale Modal */}
+      {sellingPlan && (
+          <ManualSaleModal
+             plan={sellingPlan}
+             onClose={() => setSellingPlan(null)}
+             onSuccess={() => {
+                 setSellingPlan(null);
+                 alert("Venda realizada! Verifique os Logs Financeiros ou a ficha do usuário.");
+             }}
           />
       )}
     </div>

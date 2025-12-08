@@ -18,7 +18,9 @@
     "jsonwebtoken": "^9.0.2",
     "pg": "^8.11.3",
     "react": "^19.2.1",
-    "react-dom": "^19.2.1"
+    "react-dom": "^19.2.1",
+    "multer": "^1.4.5-lts.1",
+    "adm-zip": "^0.5.10"
   },
   "devDependencies": {
     "@types/node": "^20.11.0",

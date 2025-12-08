@@ -5,9 +5,116 @@ import { authenticate } from '../middleware/auth.js';
 import { searchCityAdmin } from '../services/aiSearchService.js';
 import { runMonitoringCycle } from '../services/collectorService.js';
 import { logRequest } from '../services/logService.js';
+import { GoogleGenAI } from "@google/genai";
 
 const router = express.Router();
 router.use(authenticate);
+
+// Inicializa Gemini para o Gateway Genérico
+const apiKey = process.env.API_KEY;
+const ai = apiKey ? new GoogleGenAI({ apiKey }) : null;
+
+// --- PLUGINS ACCESS ---
+router.get('/plugins', async (req, res) => {
+    try {
+        // Busca plugins que:
+        // 1. Estão ativos globalmente (status = 'active')
+        // 2. Estão vinculados ao plano atual da assinatura ATIVA do usuário
+        const result = await query(`
+            SELECT p.*
+            FROM plugins p
+            JOIN plan_plugins pp ON p.id = pp.plugin_id
+            JOIN subscriptions s ON pp.plan_id = s.plan_id
+            WHERE s.user_id = $1 
+              AND s.status = 'active' 
+              AND p.status = 'active'
+            ORDER BY p.name ASC
+        `, [req.user.id]);
+        
+        res.json(result.rows);
+    } catch (err) {
+        console.error("Erro ao buscar plugins do cliente:", err);
+        res.status(500).json({ error: err.message });
+    }
+});
+
+// --- GENERIC AI GATEWAY FOR PLUGINS ---
+// Permite que qualquer plugin frontend use o Gemini sem expor chaves
+router.post('/plugin/ai', async (req, res) => {
+    const { plugin_id, user_prompt, model_config } = req.body;
+
+    if (!plugin_id || !user_prompt) {
+        return res.status(400).json({ error: "plugin_id e user_prompt são obrigatórios." });
+    }
+
+    try {
+        // 1. Segurança: Verifica se o usuário tem acesso a este plugin via plano
+        const accessCheck = await query(`
+            SELECT p.config 
+            FROM plugins p
+            JOIN plan_plugins pp ON p.id = pp.plugin_id
+            JOIN subscriptions s ON pp.plan_id = s.plan_id
+            WHERE s.user_id = $1 
+              AND s.status = 'active' 
+              AND p.id = $2
+              AND p.status = 'active'
+        `, [req.user.id, plugin_id]);
+
+        if (accessCheck.rows.length === 0) {
+            return res.status(403).json({ error: "Acesso negado: Plugin não autorizado para seu plano." });
+        }
+
+        // 2. Carrega Configuração do Plugin (System Prompts definidos pelo Admin)
+        const pluginConfig = accessCheck.rows[0].config || {};
+        const systemInstruction = pluginConfig.systemPrompt || "Você é um assistente útil.";
+        const negativeInstruction = pluginConfig.negativePrompt ? `\nEVITAR: ${pluginConfig.negativePrompt}` : "";
+        const useSearch = pluginConfig.useSearch === true;
+
+        // 3. Executa Gemini
+        if (!ai) throw new Error("IA não configurada no servidor.");
+
+        // Configuração Dinâmica
+        const aiConfig = {
+            systemInstruction: systemInstruction + negativeInstruction,
+            temperature: model_config?.temperature || 0.7,
+        };
+
+        // Regra do SDK: Se usar tools (googleSearch), NÃO PODE setar responseMimeType='application/json'.
+        // O plugin deve lidar com texto puro ou o modelo deve ser instruído no prompt a retornar JSON.
+        if (useSearch) {
+            aiConfig.tools = [{ googleSearch: {} }];
+        } else {
+            // Se não usar busca, forçamos JSON para facilitar integração
+            aiConfig.responseMimeType = 'application/json';
+        }
+
+        const response = await ai.models.generateContent({
+            model: 'gemini-2.5-flash',
+            contents: user_prompt,
+            config: aiConfig
+        });
+
+        // 4. Auditoria de Custo
+        const usage = response.usageMetadata || { promptTokenCount: 0, candidatesTokenCount: 0 };
+        const cost = (usage.promptTokenCount / 1000 * 0.000125) + (usage.candidatesTokenCount / 1000 * 0.000375);
+
+        await logRequest({
+            userId: req.user.id,
+            endpoint: `PLUGIN_AI_${plugin_id.substring(0, 8)}${useSearch ? '_SEARCH' : ''}`,
+            tokensIn: usage.promptTokenCount,
+            tokensOut: usage.candidatesTokenCount,
+            cost: cost,
+            status: 'SUCCESS'
+        });
+
+        // Retorna o texto. Se usou Search, pode vir com metadados de grounding, mas retornamos o texto principal.
+        res.json({ result: response.text });
+
+    } catch (err) {
+        console.error("Plugin Gateway Error:", err);
+        res.status(500).json({ error: "Erro no processamento de IA: " + err.message });
+    }
+});
 
 // --- DASHBOARD DATA ---
 

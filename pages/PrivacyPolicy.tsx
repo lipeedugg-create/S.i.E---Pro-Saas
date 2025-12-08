@@ -1,12 +1,8 @@
 import React from 'react';
 
-interface PrivacyPolicyProps {
-  onBack: () => void;
-}
-
-export const PrivacyPolicy: React.FC<PrivacyPolicyProps> = ({ onBack }) => {
+export const PrivacyPolicy: React.FC = () => {
   return (
-    <div className="min-h-screen bg-slate-950 text-slate-300 p-8 font-sans relative overflow-hidden">
+    <div className="min-h-screen bg-slate-950 text-slate-300 p-6 md:p-12 font-sans relative overflow-hidden">
        {/* Background Effects */}
        <div className="absolute top-0 left-0 w-full h-full pointer-events-none opacity-20">
          <div className="absolute top-[-20%] left-[-10%] w-[600px] h-[600px] bg-blue-900/40 rounded-full blur-[100px]"></div>
@@ -15,13 +11,7 @@ export const PrivacyPolicy: React.FC<PrivacyPolicyProps> = ({ onBack }) => {
        </div>
 
       <div className="max-w-4xl mx-auto relative z-10">
-        <button 
-          onClick={onBack}
-          className="mb-8 text-slate-400 hover:text-white font-bold text-sm flex items-center gap-2 bg-slate-900/50 px-4 py-2 rounded-lg border border-slate-800 transition-all"
-        >
-          ← Voltar para a Homepage
-        </button>
-
+        
         <div className="bg-slate-900/80 backdrop-blur-xl border border-slate-800 rounded-2xl shadow-2xl p-8 md:p-12">
             <h1 className="text-3xl font-bold text-white mb-2">Política de Privacidade</h1>
             <p className="text-slate-500 text-sm mb-8 border-b border-slate-800 pb-6">

@@ -1,42 +1,33 @@
 import React, { useState } from 'react';
+import { api } from '../services/api';
 
-interface ContactProps {
-  onBack: () => void;
-}
-
-export const Contact: React.FC<ContactProps> = ({ onBack }) => {
+export const Contact: React.FC = () => {
   const [formData, setFormData] = useState({
     name: '',
     email: '',
     subject: 'sales',
     message: ''
   });
-  const [status, setStatus] = useState<'idle' | 'sending' | 'success'>('idle');
+  const [status, setStatus] = useState<'idle' | 'sending' | 'success' | 'error'>('idle');
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setStatus('sending');
-    // Simulate API call
-    setTimeout(() => {
-      setStatus('success');
-    }, 1500);
+    try {
+        await api.sendContactMessage(formData);
+        setStatus('success');
+    } catch (e) {
+        console.error(e);
+        setStatus('error');
+    }
   };
 
   return (
-    <div className="min-h-screen bg-slate-950 flex flex-col items-center justify-center p-4 relative overflow-hidden font-sans">
+    <div className="min-h-screen bg-slate-950 flex flex-col items-center justify-center p-4 relative overflow-hidden font-sans pt-20 pb-20">
       {/* Background Ambience */}
       <div className="absolute top-0 left-0 w-full h-full opacity-10 pointer-events-none">
          <div className="absolute top-1/3 right-1/4 w-96 h-96 bg-emerald-600 rounded-full blur-3xl"></div>
          <div className="absolute bottom-1/3 left-1/4 w-96 h-96 bg-blue-600 rounded-full blur-3xl"></div>
-      </div>
-
-      <div className="absolute top-8 left-8">
-        <button 
-          onClick={onBack}
-          className="text-slate-400 hover:text-white font-bold text-sm flex items-center gap-2 bg-slate-900/50 px-4 py-2 rounded-lg border border-slate-800 transition-all hover:bg-slate-800"
-        >
-          ← Voltar
-        </button>
       </div>
 
       <div className="bg-slate-800/80 backdrop-blur-md border border-slate-700 p-8 rounded-2xl shadow-2xl w-full max-w-lg z-10 transition-all duration-300">
@@ -58,10 +49,10 @@ export const Contact: React.FC<ContactProps> = ({ onBack }) => {
             <h3 className="text-xl font-bold text-white mb-2">Mensagem Enviada!</h3>
             <p className="text-slate-400 text-sm mb-6">Recebemos seu contato. Verifique seu email em breve.</p>
             <button 
-              onClick={onBack}
+              onClick={() => { setStatus('idle'); setFormData({ name: '', email: '', subject: 'sales', message: '' }); }}
               className="bg-slate-700 hover:bg-slate-600 text-white px-6 py-2 rounded-lg font-bold transition-colors"
             >
-              Voltar para Home
+              Enviar Nova Mensagem
             </button>
           </div>
         ) : (
@@ -116,6 +107,12 @@ export const Contact: React.FC<ContactProps> = ({ onBack }) => {
               />
             </div>
 
+            {status === 'error' && (
+                <div className="p-3 bg-red-900/20 text-red-400 text-xs rounded text-center">
+                    Erro ao enviar mensagem. Tente novamente.
+                </div>
+            )}
+
             <button 
               type="submit" 
               disabled={status === 'sending'}
@@ -130,10 +127,6 @@ export const Contact: React.FC<ContactProps> = ({ onBack }) => {
             </button>
           </form>
         )}
-      </div>
-      
-      <div className="absolute bottom-6 text-slate-600 text-xs">
-        © 2024 S.I.E. PRO Inc. | São Paulo, Brasil
       </div>
     </div>
   );

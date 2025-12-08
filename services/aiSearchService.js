@@ -4,8 +4,8 @@ import { query } from '../config/db.js';
 const apiKey = process.env.API_KEY;
 const ai = apiKey ? new GoogleGenAI({ apiKey }) : null;
 
-// ID do plugin Raio-X Administrativo (Fixo na migração)
-const PLUGIN_ID = 'a0eebc99-9c0b-4ef8-bb6d-6bb9bd380a99';
+// ID do plugin Raio-X Administrativo (Slug Fixo)
+const PLUGIN_ID = 'public-admin-search';
 
 // Prompt Padrão de Fallback
 const DEFAULT_SYSTEM_PROMPT = `

@@ -3,16 +3,10 @@ import { api } from '../services/api';
 import { Plan } from '../types';
 
 interface HomepageProps {
-  onLogin: () => void;
   onSelectPlan: (planId: string) => void;
-  onOpenDocs: () => void;
-  onPrivacy: () => void;
-  onTerms: () => void;
-  onContact: () => void;
 }
 
-export const Homepage: React.FC<HomepageProps> = ({ onLogin, onSelectPlan, onOpenDocs, onPrivacy, onTerms, onContact }) => {
-  const [isMenuOpen, setIsMenuOpen] = useState(false);
+export const Homepage: React.FC<HomepageProps> = ({ onSelectPlan }) => {
   const [plans, setPlans] = useState<Plan[]>([]);
   const [loadingPlans, setLoadingPlans] = useState(true);
 
@@ -30,227 +24,296 @@ export const Homepage: React.FC<HomepageProps> = ({ onLogin, onSelectPlan, onOpe
     fetchPlans();
   }, []);
 
-  const scrollToSection = (id: string) => {
-    const element = document.getElementById(id);
-    if (element) {
-      element.scrollIntoView({ behavior: 'smooth' });
-      setIsMenuOpen(false);
-    }
-  };
-
   return (
-    <div className="min-h-screen bg-slate-950 text-white font-sans flex flex-col overflow-x-hidden">
-      {/* Navbar */}
-      <nav className="border-b border-slate-800 bg-slate-950/80 backdrop-blur-md sticky top-0 z-50">
-        <div className="max-w-7xl mx-auto px-6 h-20 flex justify-between items-center">
-          <div className="flex items-center gap-3 cursor-pointer" onClick={() => window.scrollTo({ top: 0, behavior: 'smooth' })}>
-             <div className="w-8 h-8 bg-gradient-to-br from-blue-600 to-indigo-600 rounded-lg flex items-center justify-center font-bold text-sm shadow-lg shadow-blue-500/20">S</div>
-             <span className="font-bold text-xl tracking-tight">S.I.E. PRO</span>
-          </div>
-          
-          {/* Desktop Menu */}
-          <div className="hidden md:flex gap-8 text-sm font-medium text-slate-300">
-            <button onClick={() => scrollToSection('solutions')} className="hover:text-white transition-colors">Soluções</button>
-            <button onClick={() => scrollToSection('plans')} className="hover:text-white transition-colors">Planos</button>
-            <button onClick={() => scrollToSection('tech')} className="hover:text-white transition-colors">Tecnologia</button>
-          </div>
-
-          <div className="hidden md:flex gap-4">
-            <button 
-                onClick={onLogin}
-                className="text-white font-medium hover:text-blue-400 transition-colors px-4 py-2"
-            >
-                Login
-            </button>
-            <button 
-                onClick={() => onSelectPlan('starter')}
-                className="bg-slate-800 hover:bg-slate-700 text-white px-5 py-2 rounded-lg font-medium border border-slate-700 transition-all shadow-lg hover:shadow-slate-700/50"
-            >
-                Começar Agora
-            </button>
-          </div>
-
-          {/* Mobile Toggle */}
-          <button className="md:hidden text-slate-300" onClick={() => setIsMenuOpen(!isMenuOpen)}>
-             <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16m-7 6h7" />
-             </svg>
-          </button>
-        </div>
-
-        {/* Mobile Menu */}
-        {isMenuOpen && (
-            <div className="md:hidden bg-slate-900 border-b border-slate-800 p-4 space-y-4 text-center">
-                <button onClick={() => scrollToSection('solutions')} className="block w-full text-slate-300 hover:text-white">Soluções</button>
-                <button onClick={() => scrollToSection('plans')} className="block w-full text-slate-300 hover:text-white">Planos</button>
-                <button onClick={() => scrollToSection('tech')} className="block w-full text-slate-300 hover:text-white">Tecnologia</button>
-                <button onClick={onLogin} className="block w-full bg-blue-600 text-white py-2 rounded-lg">Acessar Sistema</button>
-            </div>
-        )}
-      </nav>
-
-      {/* Hero Section */}
-      <main className="relative pt-20 pb-32 overflow-hidden">
-        {/* Effects */}
+    <>
+      {/* --- HERO SECTION --- */}
+      <section className="relative pt-20 pb-32 overflow-hidden">
+        {/* Animated Background */}
         <div className="absolute top-0 left-0 w-full h-full z-0 pointer-events-none">
-           <div className="absolute top-1/4 left-1/2 -translate-x-1/2 w-[600px] h-[600px] bg-blue-600/10 rounded-full blur-[120px]"></div>
-           <div className="absolute top-0 right-0 w-full h-full bg-[url('https://grainy-gradients.vercel.app/noise.svg')] opacity-10"></div>
+           <div className="absolute top-1/4 left-1/2 -translate-x-1/2 w-[800px] h-[800px] bg-blue-600/10 rounded-full blur-[120px] animate-pulse"></div>
+           <div className="absolute bottom-0 right-0 w-[600px] h-[600px] bg-indigo-600/10 rounded-full blur-[100px]"></div>
+           <div className="absolute inset-0 bg-[url('https://grainy-gradients.vercel.app/noise.svg')] opacity-20 brightness-150 contrast-150"></div>
         </div>
 
         <div className="max-w-7xl mx-auto px-6 relative z-10 w-full text-center">
-          <span className="inline-flex items-center gap-2 py-1 px-3 rounded-full bg-emerald-900/30 border border-emerald-800 text-emerald-300 text-xs font-bold uppercase tracking-wider mb-8 animate-fade-in-up shadow-lg shadow-emerald-900/20">
-            <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></span>
-            Production Ready v5.0
-          </span>
+          <div className="inline-flex items-center gap-2 py-1.5 px-4 rounded-full bg-slate-800/80 border border-slate-700/50 backdrop-blur-md text-blue-400 text-xs font-bold uppercase tracking-wider mb-8 animate-fade-in-up shadow-xl hover:border-blue-500/50 transition-colors cursor-default">
+            <span className="w-2 h-2 rounded-full bg-blue-500 animate-ping"></span>
+            <span className="relative">IA Generativa v5.0 Live</span>
+          </div>
           
-          <h1 className="text-5xl md:text-7xl font-bold mb-6 tracking-tight leading-tight">
-            <span className="bg-clip-text text-transparent bg-gradient-to-b from-white to-slate-400">Monitoramento Estratégico</span>
-            <br />
-            <span className="text-4xl md:text-6xl text-slate-600">Impulsionado por Gemini AI</span>
+          <h1 className="text-5xl md:text-7xl font-bold mb-6 tracking-tight leading-[1.1] text-white drop-shadow-lg">
+            Inteligência Estratégica <br className="hidden md:block"/>
+            <span className="bg-clip-text text-transparent bg-gradient-to-r from-blue-400 via-indigo-400 to-purple-400">
+                Impulsionada por Dados
+            </span>
           </h1>
           
           <p className="text-lg md:text-xl text-slate-400 max-w-2xl mx-auto mb-10 leading-relaxed">
-            Detecte crises antes que elas aconteçam. Nossa plataforma processa milhares de fontes de dados em tempo real para proteger sua reputação corporativa.
+            Monitoramento em tempo real, análise de sentimento e detecção de crises governamentais utilizando a tecnologia Google Gemini Enterprise.
           </p>
 
-          <div className="flex flex-col sm:flex-row justify-center gap-4">
+          <div className="flex flex-col sm:flex-row justify-center gap-4 mb-20">
             <button 
-              onClick={onLogin}
-              className="px-8 py-4 bg-blue-600 hover:bg-blue-700 text-white rounded-xl font-bold shadow-lg shadow-blue-600/25 transition-all hover:scale-105"
+              onClick={() => onSelectPlan('starter')}
+              className="px-8 py-4 bg-blue-600 hover:bg-blue-500 text-white rounded-xl font-bold shadow-[0_0_20px_rgba(37,99,235,0.3)] transition-all hover:-translate-y-1"
             >
-              Acessar Painel
+              Criar Conta Grátis
             </button>
-            <button onClick={() => scrollToSection('solutions')} className="px-8 py-4 bg-slate-900 hover:bg-slate-800 text-white border border-slate-700 rounded-xl font-medium transition-all hover:border-slate-600">
-              Conhecer Recursos
+            <button 
+                onClick={() => document.getElementById('solutions')?.scrollIntoView({behavior:'smooth'})} 
+                className="px-8 py-4 bg-slate-900/50 hover:bg-slate-800 text-slate-200 border border-slate-700 hover:border-slate-600 rounded-xl font-bold transition-all backdrop-blur-sm"
+            >
+              Ver Recursos
             </button>
           </div>
 
-          {/* CSS Mockup of Dashboard instead of Image */}
-          <div className="mt-20 relative max-w-5xl mx-auto">
-             <div className="absolute -inset-1 bg-gradient-to-r from-blue-600 to-indigo-600 rounded-2xl blur opacity-20"></div>
-             <div className="relative bg-slate-900 border border-slate-800 rounded-xl shadow-2xl overflow-hidden">
+          {/* DASHBOARD PREVIEW MOCKUP */}
+          <div className="relative max-w-5xl mx-auto group perspective-1000">
+             <div className="absolute -inset-1 bg-gradient-to-r from-blue-600 to-indigo-600 rounded-2xl blur opacity-20 group-hover:opacity-40 transition-opacity duration-1000"></div>
+             <div className="relative bg-[#0F172A] border border-slate-700/50 rounded-xl shadow-2xl overflow-hidden transform group-hover:rotate-x-2 transition-transform duration-700 origin-center">
                 {/* Mockup Header */}
-                <div className="h-10 bg-slate-950 border-b border-slate-800 flex items-center px-4 gap-2">
+                <div className="h-10 bg-slate-900 border-b border-slate-800 flex items-center px-4 gap-2">
                     <div className="flex gap-1.5">
-                        <div className="w-3 h-3 rounded-full bg-red-500/20 border border-red-500/50"></div>
-                        <div className="w-3 h-3 rounded-full bg-yellow-500/20 border border-yellow-500/50"></div>
-                        <div className="w-3 h-3 rounded-full bg-green-500/20 border border-green-500/50"></div>
+                        <div className="w-3 h-3 rounded-full bg-slate-700"></div>
+                        <div className="w-3 h-3 rounded-full bg-slate-700"></div>
+                        <div className="w-3 h-3 rounded-full bg-slate-700"></div>
                     </div>
-                    <div className="flex-1 text-center text-xs text-slate-600 font-mono">dashboard.sie.pro</div>
-                </div>
-                {/* Mockup Body */}
-                <div className="p-6 grid grid-cols-12 gap-6 h-[400px] overflow-hidden">
-                    {/* Sidebar Mock */}
-                    <div className="col-span-2 hidden md:flex flex-col gap-3 border-r border-slate-800 pr-4">
-                        <div className="h-8 bg-slate-800 rounded w-full animate-pulse"></div>
-                        <div className="h-8 bg-slate-800/50 rounded w-3/4"></div>
-                        <div className="h-8 bg-slate-800/50 rounded w-5/6"></div>
-                        <div className="h-8 bg-slate-800/50 rounded w-4/5"></div>
-                    </div>
-                    {/* Main Content Mock */}
-                    <div className="col-span-12 md:col-span-10 flex flex-col gap-6">
-                        <div className="flex justify-between">
-                             <div className="h-8 w-48 bg-slate-800 rounded"></div>
-                             <div className="h-8 w-24 bg-blue-900/20 rounded border border-blue-900/50"></div>
-                        </div>
-                        <div className="grid grid-cols-3 gap-4">
-                            <div className="h-24 bg-slate-800 rounded-lg border border-slate-700"></div>
-                            <div className="h-24 bg-slate-800 rounded-lg border border-slate-700"></div>
-                            <div className="h-24 bg-slate-800 rounded-lg border border-slate-700"></div>
-                        </div>
-                        <div className="flex-1 bg-slate-950/50 rounded-lg border border-slate-800 p-4 space-y-3">
-                            <div className="h-12 bg-slate-800/50 rounded w-full"></div>
-                            <div className="h-12 bg-slate-800/50 rounded w-full"></div>
-                            <div className="h-12 bg-slate-800/50 rounded w-full"></div>
+                    <div className="flex-1 flex justify-center">
+                        <div className="bg-slate-800 rounded-md px-3 py-1 text-[10px] text-slate-500 font-mono flex items-center gap-2">
+                            <span className="w-2 h-2 rounded-full bg-green-500"></span>
+                            app.sie.pro/dashboard
                         </div>
                     </div>
                 </div>
-                {/* Gradient Overlay for Fade */}
-                <div className="absolute inset-0 bg-gradient-to-t from-slate-950 via-transparent to-transparent pointer-events-none"></div>
+                {/* Mockup Body Image */}
+                <div className="relative bg-slate-950 p-1">
+                    {/* Placeholder Grid Simulation */}
+                    <div className="grid grid-cols-12 gap-1 h-[450px] opacity-80">
+                        {/* Sidebar */}
+                        <div className="col-span-2 hidden md:flex flex-col gap-2 bg-slate-900/50 border-r border-slate-800 p-3">
+                            <div className="h-8 w-8 bg-blue-600 rounded-lg mb-4"></div>
+                            <div className="h-2 w-full bg-slate-800 rounded"></div>
+                            <div className="h-2 w-3/4 bg-slate-800 rounded"></div>
+                            <div className="h-2 w-5/6 bg-slate-800 rounded"></div>
+                        </div>
+                        {/* Content */}
+                        <div className="col-span-12 md:col-span-10 p-6 flex flex-col gap-4">
+                            <div className="flex justify-between items-end">
+                                <div className="space-y-2">
+                                    <div className="h-4 w-48 bg-slate-800 rounded"></div>
+                                    <div className="h-8 w-64 bg-slate-700 rounded"></div>
+                                </div>
+                                <div className="h-10 w-32 bg-blue-900/20 border border-blue-900/50 rounded"></div>
+                            </div>
+                            <div className="grid grid-cols-3 gap-4 h-32">
+                                <div className="bg-slate-900 rounded-lg border border-slate-800 p-4"><div className="h-full w-full bg-gradient-to-br from-slate-800 to-transparent rounded"></div></div>
+                                <div className="bg-slate-900 rounded-lg border border-slate-800 p-4"><div className="h-full w-full bg-gradient-to-br from-slate-800 to-transparent rounded"></div></div>
+                                <div className="bg-slate-900 rounded-lg border border-slate-800 p-4"><div className="h-full w-full bg-gradient-to-br from-slate-800 to-transparent rounded"></div></div>
+                            </div>
+                            <div className="flex-1 bg-slate-900/30 rounded-lg border border-slate-800 border-dashed flex items-center justify-center">
+                                <span className="text-slate-700 font-mono text-xs">AI ANALYSIS STREAM</span>
+                            </div>
+                        </div>
+                    </div>
+                    {/* Gradient Overlay */}
+                    <div className="absolute inset-0 bg-gradient-to-t from-slate-950 via-transparent to-transparent pointer-events-none"></div>
+                </div>
              </div>
           </div>
         </div>
-      </main>
+      </section>
 
-      {/* Solutions Section */}
+      {/* --- SOLUTIONS SECTION (Bento Grid) --- */}
       <section id="solutions" className="py-24 bg-slate-950 relative border-t border-slate-900">
         <div className="max-w-7xl mx-auto px-6">
-            <div className="text-center mb-16">
-                <h2 className="text-3xl md:text-4xl font-bold text-white mb-4">Soluções Enterprise</h2>
-                <p className="text-slate-400 max-w-2xl mx-auto">Ferramentas desenhadas para departamentos de Relações Públicas, Compliance e Gestão de Crise.</p>
+            <div className="mb-16">
+                <span className="text-blue-500 font-bold tracking-widest uppercase text-sm">Nossas Soluções</span>
+                <h2 className="text-3xl md:text-5xl font-bold text-white mt-2">Tecnologia que antecipa o futuro.</h2>
             </div>
 
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
-                {[
-                    { title: "Monitoramento Real-Time", icon: "⚡", desc: "Varredura contínua de portais de notícias, blogs e redes sociais com latência mínima." },
-                    { title: "Análise de Sentimento", icon: "🧠", desc: "O motor Google Gemini 2.5 classifica o tom e impacto de cada menção." },
-                    { title: "Auditoria de Custos", icon: "📊", desc: "Transparência total. Rastreie cada token consumido pela IA e gerencie seu orçamento." },
-                    { title: "Alertas Preditivos", icon: "🚨", desc: "Receba notificações antes que uma tendência negativa viralize." },
-                    { title: "Marketplace de Plugins", icon: "🧩", desc: "Ative módulos extras como Dark Web Monitoring e Exportação PDF." },
-                    { title: "API de Integração", icon: "🔌", desc: "Conecte os dados do S.I.E. PRO diretamente ao seu BI ou CRM interno." }
-                ].map((item, i) => (
-                    <div key={i} className="p-8 rounded-2xl bg-slate-900 border border-slate-800 hover:border-blue-900/50 hover:bg-slate-800/50 transition-all group">
-                        <div className="w-12 h-12 bg-slate-800 rounded-lg flex items-center justify-center text-2xl mb-6 group-hover:scale-110 transition-transform">{item.icon}</div>
-                        <h3 className="font-bold text-xl mb-3 text-slate-200">{item.title}</h3>
-                        <p className="text-slate-400 text-sm leading-relaxed">{item.desc}</p>
+            <div className="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-4 gap-4 auto-rows-[minmax(180px,auto)]">
+                {/* Feature 1 (Large) */}
+                <div className="md:col-span-2 lg:col-span-2 row-span-2 bg-slate-900/50 border border-slate-800 rounded-3xl p-8 hover:border-blue-500/30 transition-all group overflow-hidden relative">
+                    <div className="absolute top-0 right-0 p-8 opacity-20 group-hover:opacity-40 transition-opacity">
+                        <svg className="w-32 h-32 text-blue-500" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1} d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" /></svg>
                     </div>
-                ))}
+                    <div className="relative z-10">
+                        <div className="w-12 h-12 bg-blue-600 rounded-2xl flex items-center justify-center text-2xl mb-6 shadow-lg shadow-blue-900/50">⚡</div>
+                        <h3 className="text-2xl font-bold text-white mb-4">Monitoramento Real-Time</h3>
+                        <p className="text-slate-400 leading-relaxed mb-6">
+                            Nossa engine de coleta varre milhares de fontes de notícias, blogs e portais governamentais a cada minuto. Não perca nenhuma menção à sua marca ou entidade.
+                        </p>
+                        <ul className="space-y-2">
+                            {['Latência ultra-baixa', 'Cobertura nacional', 'Filtros avançados'].map(item => (
+                                <li key={item} className="flex items-center gap-2 text-sm text-slate-300">
+                                    <span className="text-blue-500">✓</span> {item}
+                                </li>
+                            ))}
+                        </ul>
+                    </div>
+                </div>
+
+                {/* Feature 2 */}
+                <div className="md:col-span-1 lg:col-span-2 bg-slate-900/50 border border-slate-800 rounded-3xl p-8 hover:bg-slate-800 transition-colors group">
+                    <div className="w-10 h-10 bg-purple-600 rounded-xl flex items-center justify-center text-xl mb-4 text-white">🧠</div>
+                    <h3 className="text-xl font-bold text-white mb-2">Análise de Sentimento AI</h3>
+                    <p className="text-sm text-slate-400">Classificação automática de tom (Positivo, Negativo, Neutro) com 98% de precisão usando LLMs.</p>
+                </div>
+
+                {/* Feature 3 */}
+                <div className="md:col-span-1 bg-slate-900/50 border border-slate-800 rounded-3xl p-8 hover:bg-slate-800 transition-colors">
+                    <div className="w-10 h-10 bg-emerald-600 rounded-xl flex items-center justify-center text-xl mb-4 text-white">🧩</div>
+                    <h3 className="text-xl font-bold text-white mb-2">Plugins</h3>
+                    <p className="text-sm text-slate-400">Expanda o sistema com módulos como o "Raio-X Administrativo".</p>
+                </div>
+
+                {/* Feature 4 */}
+                <div className="md:col-span-1 bg-slate-900/50 border border-slate-800 rounded-3xl p-8 hover:bg-slate-800 transition-colors">
+                    <div className="w-10 h-10 bg-red-600 rounded-xl flex items-center justify-center text-xl mb-4 text-white">🚨</div>
+                    <h3 className="text-xl font-bold text-white mb-2">Alertas de Crise</h3>
+                    <p className="text-sm text-slate-400">Notificações imediatas quando anomalias são detectadas.</p>
+                </div>
             </div>
         </div>
       </section>
 
-      {/* Tech Stack Section */}
+      {/* --- TECH SECTION (Detailed) --- */}
       <section id="tech" className="py-24 bg-slate-950 border-t border-slate-900">
-         <div className="max-w-7xl mx-auto px-6 text-center">
-            <h2 className="text-3xl md:text-4xl font-bold text-white mb-12">Stack Tecnológico</h2>
-            <div className="flex flex-wrap justify-center gap-12 items-center opacity-70">
-                <div className="text-slate-400 font-bold text-xl flex items-center gap-2"><span className="text-blue-500">◆</span> PostgreSQL</div>
-                <div className="text-slate-400 font-bold text-xl flex items-center gap-2"><span className="text-green-500">◆</span> Node.js</div>
-                <div className="text-slate-400 font-bold text-xl flex items-center gap-2"><span className="text-cyan-500">◆</span> React 19</div>
-                <div className="text-slate-400 font-bold text-xl flex items-center gap-2"><span className="text-purple-500">◆</span> Gemini API</div>
-                <div className="text-slate-400 font-bold text-xl flex items-center gap-2"><span className="text-white">◆</span> Docker</div>
+         <div className="max-w-7xl mx-auto px-6">
+            <div className="flex flex-col lg:flex-row items-center gap-16">
+                <div className="lg:w-1/2">
+                    <span className="text-purple-500 font-bold tracking-widest uppercase text-sm">Engine Proprietária</span>
+                    <h2 className="text-3xl md:text-4xl font-bold text-white mt-2 mb-6">Processamento de Linguagem Natural em Escala</h2>
+                    <p className="text-slate-400 text-lg leading-relaxed mb-8">
+                        Ao contrário de ferramentas tradicionais baseadas apenas em palavras-chave, o S.I.E. PRO entende o contexto. Utilizamos o modelo <strong>Gemini 2.5 Flash</strong> para ler, interpretar e estruturar dados não estruturados da web.
+                    </p>
+                    
+                    <div className="space-y-6">
+                        <div className="flex gap-4">
+                            <div className="w-12 h-12 rounded-full bg-slate-900 border border-slate-700 flex items-center justify-center text-xl font-bold text-slate-300">1</div>
+                            <div>
+                                <h4 className="font-bold text-white">Coleta Inteligente</h4>
+                                <p className="text-sm text-slate-500">Crawlers distribuídos que simulam navegação humana para evitar bloqueios.</p>
+                            </div>
+                        </div>
+                        <div className="flex gap-4">
+                            <div className="w-12 h-12 rounded-full bg-slate-900 border border-slate-700 flex items-center justify-center text-xl font-bold text-slate-300">2</div>
+                            <div>
+                                <h4 className="font-bold text-white">Estruturação JSON</h4>
+                                <p className="text-sm text-slate-500">Transformação de notícias em dados estruturados (Entidades, Valores, Cargos) prontos para SQL.</p>
+                            </div>
+                        </div>
+                        <div className="flex gap-4">
+                            <div className="w-12 h-12 rounded-full bg-slate-900 border border-slate-700 flex items-center justify-center text-xl font-bold text-slate-300">3</div>
+                            <div>
+                                <h4 className="font-bold text-white">Auditoria de Custo</h4>
+                                <p className="text-sm text-slate-500">Transparência total. Você sabe exatamente quanto custou cada token processado.</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div className="lg:w-1/2 w-full">
+                    <div className="bg-[#0f172a] rounded-xl border border-slate-800 shadow-2xl overflow-hidden font-mono text-sm relative group">
+                        <div className="absolute top-0 right-0 p-4">
+                            <div className="flex gap-2">
+                                <div className="w-3 h-3 rounded-full bg-red-500"></div>
+                                <div className="w-3 h-3 rounded-full bg-yellow-500"></div>
+                                <div className="w-3 h-3 rounded-full bg-green-500"></div>
+                            </div>
+                        </div>
+                        <div className="p-6 pt-12 space-y-2 text-slate-300">
+                            <div className="flex">
+                                <span className="text-blue-400 mr-2">➜</span>
+                                <span className="text-yellow-300">curl</span>
+                                <span className="ml-2">-X POST api.sie.pro/v1/analyze</span>
+                            </div>
+                            <div className="text-slate-500 animate-pulse">Processing payload...</div>
+                            <div className="pt-4 text-emerald-400">
+                                {`{`}
+                                <div className="pl-4">
+                                    <span className="text-purple-400">"status"</span>: <span className="text-orange-300">"success"</span>,<br/>
+                                    <span className="text-purple-400">"sentiment"</span>: <span className="text-orange-300">"negative"</span>,<br/>
+                                    <span className="text-purple-400">"entities"</span>: [<span className="text-orange-300">"Prefeitura"</span>, <span className="text-orange-300">"Licitação"</span>],<br/>
+                                    <span className="text-purple-400">"risk_score"</span>: <span className="text-blue-300">0.89</span>
+                                </div>
+                                {`}`}
+                            </div>
+                        </div>
+                        <div className="absolute bottom-0 left-0 w-full h-1 bg-gradient-to-r from-blue-500 to-purple-500"></div>
+                    </div>
+                </div>
             </div>
          </div>
       </section>
 
-      {/* Plans Section */}
+      {/* --- PLANS SECTION (Pricing) --- */}
       <section id="plans" className="py-24 bg-slate-950 border-t border-slate-900">
         <div className="max-w-7xl mx-auto px-6">
             <div className="text-center mb-16">
-                <h2 className="text-3xl md:text-4xl font-bold text-white mb-4">Planos Flexíveis</h2>
-                <p className="text-slate-400">Escalabilidade garantida para empresas de todos os tamanhos.</p>
+                <span className="text-emerald-500 font-bold tracking-widest uppercase text-sm">Planos Flexíveis</span>
+                <h2 className="text-3xl md:text-5xl font-bold text-white mt-2 mb-4">Escolha a escala ideal.</h2>
+                <p className="text-slate-400">Sem contratos de longo prazo. Cancele quando quiser.</p>
             </div>
             
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8 max-w-5xl mx-auto">
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8 max-w-6xl mx-auto">
                 {loadingPlans ? (
-                    <div className="col-span-3 text-center text-slate-500 py-10">Carregando planos...</div>
+                    <div className="col-span-3 text-center py-20">
+                        <div className="w-12 h-12 border-4 border-blue-600 border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
+                        <p className="text-slate-500">Carregando ofertas...</p>
+                    </div>
                 ) : (
                     plans.map(plan => (
-                        <div key={plan.id} className="bg-slate-900 p-8 rounded-2xl border border-slate-800 flex flex-col hover:border-slate-700 transition-colors shadow-lg relative">
+                        <div 
+                            key={plan.id} 
+                            className={`relative p-8 rounded-2xl border flex flex-col transition-all duration-300 ${
+                                plan.id === 'pro' 
+                                ? 'bg-slate-900 border-blue-500 shadow-2xl shadow-blue-900/20 scale-105 z-10' 
+                                : 'bg-slate-950 border-slate-800 hover:border-slate-600'
+                            }`}
+                        >
                             {plan.id === 'pro' && (
-                                <div className="absolute top-0 right-0 bg-blue-600 text-white text-xs font-bold px-3 py-1 rounded-bl-lg rounded-tr-xl">POPULAR</div>
+                                <div className="absolute -top-4 left-1/2 -translate-x-1/2 bg-blue-600 text-white text-[10px] font-bold px-4 py-1 rounded-full uppercase tracking-wider shadow-lg">
+                                    Mais Popular
+                                </div>
                             )}
-                            <h3 className="text-xl font-bold text-white mb-2">{plan.name}</h3>
-                            <div className="text-4xl font-bold text-white mb-6">
-                                R$ {Number(plan.price).toFixed(2)}
-                                <span className="text-lg text-slate-500 font-normal">/mês</span>
+
+                            <h3 className={`text-xl font-bold mb-2 ${plan.id === 'pro' ? 'text-white' : 'text-slate-200'}`}>{plan.name}</h3>
+                            <div className="flex items-baseline gap-1 mb-6">
+                                <span className="text-4xl font-bold text-white">R$ {Number(plan.price).toFixed(0)}</span>
+                                <span className="text-slate-500 text-sm">/mês</span>
                             </div>
                             
-                            <div className="flex-1 mb-8">
-                                <p className="text-slate-400 text-sm leading-relaxed whitespace-pre-line">
-                                    {plan.description?.replace(/\./g, '.\n✓ ')}
-                                </p>
+                            <p className="text-sm text-slate-400 mb-8 min-h-[60px] leading-relaxed">
+                                {plan.description}
+                            </p>
+                            
+                            <div className="flex-1 space-y-4 mb-8">
+                                <div className="flex items-center gap-3 text-sm text-slate-300">
+                                    <span className="w-5 h-5 rounded-full bg-slate-800 flex items-center justify-center text-xs text-blue-400">✓</span>
+                                    <span>Até {plan.token_limit?.toLocaleString()} tokens IA</span>
+                                </div>
+                                <div className="flex items-center gap-3 text-sm text-slate-300">
+                                    <span className="w-5 h-5 rounded-full bg-slate-800 flex items-center justify-center text-xs text-blue-400">✓</span>
+                                    <span>Suporte via Email</span>
+                                </div>
+                                {plan.id !== 'starter' && (
+                                    <div className="flex items-center gap-3 text-sm text-slate-300">
+                                        <span className="w-5 h-5 rounded-full bg-slate-800 flex items-center justify-center text-xs text-blue-400">✓</span>
+                                        <span>Plugins Avançados</span>
+                                    </div>
+                                )}
                             </div>
                             
                             <button 
                                 onClick={() => onSelectPlan(plan.id)}
-                                className={`w-full py-3 rounded-lg font-bold transition-colors ${
+                                className={`w-full py-4 rounded-xl font-bold transition-all ${
                                     plan.id === 'pro' 
-                                    ? 'bg-blue-600 text-white hover:bg-blue-700 shadow-lg shadow-blue-900/50' 
-                                    : 'border border-slate-700 text-white hover:bg-slate-800'
+                                    ? 'bg-blue-600 text-white hover:bg-blue-500 shadow-lg shadow-blue-600/30' 
+                                    : 'bg-slate-800 text-white hover:bg-slate-700 border border-slate-700'
                                 }`}
                             >
-                                Selecionar Plano
+                                {plan.id === 'starter' ? 'Começar Trial' : 'Assinar Agora'}
                             </button>
                         </div>
                     ))
@@ -258,63 +321,6 @@ export const Homepage: React.FC<HomepageProps> = ({ onLogin, onSelectPlan, onOpe
             </div>
         </div>
       </section>
-
-      {/* Footer */}
-      <footer className="border-t border-slate-800 bg-slate-950 pt-16 pb-8">
-        <div className="max-w-7xl mx-auto px-6">
-            <div className="grid grid-cols-1 md:grid-cols-4 gap-12 mb-12">
-                <div className="md:col-span-1">
-                    <div className="flex items-center gap-2 mb-4">
-                        <div className="w-8 h-8 bg-blue-600 rounded-lg flex items-center justify-center font-bold text-xs">S</div>
-                        <span className="font-bold text-xl">S.I.E. PRO</span>
-                    </div>
-                    <p className="text-slate-500 text-sm leading-relaxed mb-6">
-                        Plataforma líder em inteligência de dados para gestão de reputação e monitoramento de crises.
-                    </p>
-                    <div className="flex gap-4">
-                        <a href="#" className="text-slate-400 hover:text-white transition-colors">LinkedIn</a>
-                        <a href="#" className="text-slate-400 hover:text-white transition-colors">Twitter</a>
-                    </div>
-                </div>
-
-                <div>
-                    <h4 className="font-bold text-white mb-4">Produto</h4>
-                    <ul className="space-y-2 text-sm text-slate-400">
-                        <li><button onClick={() => scrollToSection('solutions')} className="hover:text-blue-400 transition-colors">Funcionalidades</button></li>
-                        <li><button onClick={() => scrollToSection('plans')} className="hover:text-blue-400 transition-colors">Planos & Preços</button></li>
-                        <li><button onClick={() => scrollToSection('tech')} className="hover:text-blue-400 transition-colors">API & Integrações</button></li>
-                    </ul>
-                </div>
-
-                <div>
-                    <h4 className="font-bold text-white mb-4">Suporte</h4>
-                    <ul className="space-y-2 text-sm text-slate-400">
-                        <li><button onClick={onOpenDocs} className="hover:text-blue-400 transition-colors">Documentação Técnica</button></li>
-                        <li><button onClick={onContact} className="hover:text-blue-400 transition-colors">Fale Conosco</button></li>
-                        <li><button onClick={onContact} className="hover:text-blue-400 transition-colors">Status do Sistema</button></li>
-                    </ul>
-                </div>
-
-                <div>
-                    <h4 className="font-bold text-white mb-4">Legal</h4>
-                    <ul className="space-y-2 text-sm text-slate-400">
-                        <li><button onClick={onPrivacy} className="hover:text-blue-400 transition-colors">Política de Privacidade</button></li>
-                        <li><button onClick={onTerms} className="hover:text-blue-400 transition-colors">Termos de Uso</button></li>
-                        <li><span className="text-slate-600 cursor-not-allowed">Compliance (LGPD)</span></li>
-                    </ul>
-                </div>
-            </div>
-
-            <div className="border-t border-slate-800 pt-8 flex flex-col md:flex-row justify-between items-center gap-4 text-xs text-slate-600">
-                <span>© 2024 S.I.E. PRO Inc. Todos os direitos reservados.</span>
-                <div className="flex gap-4">
-                    <span>São Paulo, Brasil</span>
-                    <span>•</span>
-                    <span>v5.1 Enterprise</span>
-                </div>
-            </div>
-        </div>
-      </footer>
-    </div>
+    </>
   );
 };

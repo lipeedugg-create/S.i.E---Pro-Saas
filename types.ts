@@ -35,6 +35,7 @@ export interface PluginConfig {
   systemPrompt?: string;
   negativePrompt?: string;
   temperature?: number;
+  useSearch?: boolean; // NOVO: Permite acesso ao Google Search Grounding
 }
 
 export interface Plugin {
@@ -47,7 +48,8 @@ export interface Plugin {
   category: 'analytics' | 'security' | 'integration' | 'utility';
   price: number; // Custo mensal sugerido para repasse
   allowed_plans: string[]; // IDs dos planos que têm acesso a este plugin
-  config?: PluginConfig; // NOVO: Armazena prompts customizados
+  config?: PluginConfig; // Armazena prompts customizados
+  entry_point?: string; // NOVO: Caminho para o index.html (ex: /plugins/meu-app/index.html)
 }
 
 // Tabela 8: Payments (Gestão Financeira Manual)
@@ -98,7 +100,7 @@ export interface MonitoringConfig {
   urls_to_track: string[];
   frequency: 'daily' | 'hourly';
   is_active: boolean;
-  last_run_at?: string; // NOVO: Data da última execução
+  last_run_at?: string; // Data da última execução
 }
 
 // --- NEW: Public Administration Search Types ---

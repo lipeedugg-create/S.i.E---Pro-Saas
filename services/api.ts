@@ -11,8 +11,6 @@ const getHeaders = () => {
 };
 
 const handleResponse = async (res: Response) => {
-  // CRITICAL FIX: Não forçar reload de página aqui. Isso causa o "loop de login".
-  // Apenas lançamos o erro e deixamos o App.tsx decidir limpar o estado.
   if (res.status === 401 || res.status === 403) {
       throw new Error("AUTH_ERROR: Sessão expirada ou inválida.");
   }
@@ -49,10 +47,18 @@ export const api = {
     return handleResponse(res);
   },
 
-  // Busca pública de planos (para Homepage e Registro)
   getPublicPlans: async (): Promise<Plan[]> => {
     const res = await fetch(`${API_URL}/auth/plans`);
     return handleResponse(res);
+  },
+
+  sendContactMessage: async (data: {name: string, email: string, subject: string, message: string}): Promise<any> => {
+      const res = await fetch(`${API_URL}/auth/contact`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(data)
+      });
+      return handleResponse(res);
   },
 
   impersonate: async (userId: string): Promise<{ user: User, token: string }> => {
@@ -98,7 +104,6 @@ export const api = {
   },
 
   // --- SUBSCRIPTIONS & PLANS ---
-  // ADMIN ONLY
   getPlans: async (): Promise<Plan[]> => {
     const res = await fetch(`${API_URL}/admin/plans`, { headers: getHeaders() });
     return handleResponse(res);
@@ -125,7 +130,6 @@ export const api = {
     return handleResponse(res);
   },
 
-  // ADMIN ONLY
   getSubscriptions: async (): Promise<Subscription[]> => {
     const res = await fetch(`${API_URL}/admin/subscriptions`, { headers: getHeaders() });
     return handleResponse(res);
@@ -143,6 +147,46 @@ export const api = {
   getPlugins: async (): Promise<Plugin[]> => {
     const res = await fetch(`${API_URL}/admin/plugins`, { headers: getHeaders() });
     return handleResponse(res);
+  },
+
+  getClientPlugins: async (): Promise<Plugin[]> => {
+    const res = await fetch(`${API_URL}/client/plugins`, { headers: getHeaders() });
+    return handleResponse(res);
+  },
+
+  // NOVO: Upload de Plugin (Multipart Form)
+  uploadPlugin: async (file: File): Promise<any> => {
+    const formData = new FormData();
+    formData.append('plugin_file', file);
+
+    const token = localStorage.getItem('token');
+    const res = await fetch(`${API_URL}/admin/plugins/upload`, {
+        method: 'POST',
+        headers: {
+            'Authorization': token ? `Bearer ${token}` : ''
+            // Content-Type é automático com FormData
+        },
+        body: formData
+    });
+    return handleResponse(res);
+  },
+
+  downloadPluginTemplate: async (): Promise<void> => {
+      const token = localStorage.getItem('token');
+      const res = await fetch(`${API_URL}/admin/plugins/template`, {
+          headers: { 'Authorization': token ? `Bearer ${token}` : '' }
+      });
+      if (!res.ok) throw new Error("Erro ao baixar template.");
+      
+      const blob = await res.blob();
+      const url = window.URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = "plugin-template.zip";
+      document.body.appendChild(a);
+      a.click();
+      window.URL.revokeObjectURL(url);
+      document.body.removeChild(a);
   },
 
   updatePluginStatus: async (id: string, status: string): Promise<void> => {
@@ -250,7 +294,6 @@ export const api = {
     return handleResponse(res);
   },
 
-  // --- CLIENT PROFILE & METRICS ---
   getClientProfile: async (): Promise<User> => {
     const res = await fetch(`${API_URL}/client/profile`, { headers: getHeaders() });
     return handleResponse(res);
@@ -275,13 +318,11 @@ export const api = {
     return handleResponse(res);
   },
 
-  // Gets the current logged in client's subscription
   getClientSubscription: async (): Promise<Subscription | null> => {
     const res = await fetch(`${API_URL}/client/subscription`, { headers: getHeaders() });
     return handleResponse(res);
   },
 
-  // --- TOOLS (PLUGINS) ---
   searchPublicAdmin: async (city: string): Promise<CityAdminData> => {
     const res = await fetch(`${API_URL}/client/tools/public-admin-search`, {
         method: 'POST',

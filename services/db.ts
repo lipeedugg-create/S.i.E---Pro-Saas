@@ -1,8 +1,9 @@
 /**
- * MOCK DATA REMOVED.
+ * ARQUIVO OBSOLETO.
  * 
- * The application is now fully integrated with the Node.js/PostgreSQL Backend.
- * All data fetching is handled via 'services/api.ts'.
+ * Toda a persistência de dados foi migrada para o PostgreSQL via API.
+ * As interfaces de tipo (TypeScript) estão em `types.ts`.
+ * As chamadas de dados estão em `services/api.ts`.
  */
 
 export const db = {};

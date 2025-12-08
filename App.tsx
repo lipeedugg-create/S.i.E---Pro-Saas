@@ -7,6 +7,7 @@ import { PrivacyPolicy } from './pages/PrivacyPolicy';
 import { Terms } from './pages/Terms';
 import { Contact } from './pages/Contact';
 import { Sidebar } from './components/Sidebar';
+import { PublicLayout } from './components/PublicLayout';
 import { AdminDashboard } from './pages/admin/AdminDashboard';
 import { AdminLogs } from './pages/admin/AdminLogs';
 import { AdminAddons } from './pages/admin/AdminAddons';
@@ -16,7 +17,8 @@ import { ClientDashboard } from './pages/client/ClientDashboard';
 import { ClientConfig } from './pages/client/ClientConfig';
 import { PublicAdminSearch } from './pages/client/PublicAdminSearch';
 import { ClientProfile } from './pages/client/ClientProfile';
-import { User } from './types';
+import { PluginViewer } from './components/PluginViewer';
+import { User, Plugin } from './types';
 
 export default function App() {
   const [currentUser, setCurrentUser] = useState<User | null>(null);
@@ -25,8 +27,27 @@ export default function App() {
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
   const [isAuthLoading, setIsAuthLoading] = useState(true);
 
+  // Plugins State
+  const [activePlugins, setActivePlugins] = useState<Plugin[]>([]);
+
   // New State: Pass selected plan from Homepage to Register Flow
   const [selectedPlan, setSelectedPlan] = useState<string | null>(null);
+
+  // Helper para carregar plugins baseado na role
+  const loadPluginsForUser = async (role: string) => {
+      try {
+          if (role === 'admin') {
+              const allPlugins = await api.getPlugins();
+              setActivePlugins(allPlugins.filter(p => p.status === 'active' && p.entry_point));
+          } else {
+              // Cliente: Carrega apenas os permitidos pelo plano
+              const myPlugins = await api.getClientPlugins();
+              setActivePlugins(myPlugins);
+          }
+      } catch (err) {
+          console.warn("Erro ao carregar plugins:", err);
+      }
+  };
 
   // Restore Session on Load (Optimistic + Validation)
   useEffect(() => {
@@ -34,7 +55,7 @@ export default function App() {
         const token = localStorage.getItem('token');
         const cachedUserStr = localStorage.getItem('user_cache');
 
-        // 1. Hidratação Otimista (Optimistic Hydration)
+        // 1. Hidratação Otimista
         if (token && cachedUserStr) {
             try {
                 const cachedUser = JSON.parse(cachedUserStr);
@@ -52,7 +73,7 @@ export default function App() {
             return;
         }
 
-        // 2. Validação Assíncrona no Servidor
+        // 2. Validação Assíncrona
         try {
             const freshUser = await api.validateSession();
             setCurrentUser(freshUser);
@@ -61,16 +82,17 @@ export default function App() {
             if (!currentUser && (activePage === 'login' || activePage === 'homepage')) {
                  setActivePage(freshUser.role === 'admin' ? 'admin-dashboard' : 'client-dashboard');
             }
+
+            // Carrega plugins
+            await loadPluginsForUser(freshUser.role);
+
         } catch (error: any) {
             console.error("Sessão:", error.message);
             if (error.message.includes('AUTH_ERROR') || error.message.includes('Sessão expirada')) {
-                console.warn("Token inválido ou expirado. Realizando logout.");
                 localStorage.removeItem('token');
                 localStorage.removeItem('user_cache');
                 setCurrentUser(null);
                 setActivePage('homepage');
-            } else {
-                console.warn("Backend indisponível momentaneamente. Mantendo sessão em cache.");
             }
         } finally {
             setIsAuthLoading(false);
@@ -83,6 +105,7 @@ export default function App() {
   const handleLogin = (user: User) => {
     setCurrentUser(user);
     setActivePage(user.role === 'admin' ? 'admin-dashboard' : 'client-dashboard');
+    loadPluginsForUser(user.role);
   };
 
   const handleLogout = () => {
@@ -90,6 +113,7 @@ export default function App() {
     localStorage.removeItem('user_cache');
     setCurrentUser(null);
     setActivePage('homepage'); 
+    setActivePlugins([]);
   };
 
   const handleNavigate = (page: string) => {
@@ -97,6 +121,7 @@ export default function App() {
       setShowDocs(true);
     } else {
       setActivePage(page);
+      window.scrollTo(0, 0); // Ensure scroll reset on nav
     }
   };
 
@@ -122,60 +147,62 @@ export default function App() {
     return <Documentation onClose={() => setShowDocs(false)} />;
   }
 
-  // Rotas Públicas
+  // --- ROTAS PÚBLICAS (Wrapped in PublicLayout) ---
   if (!currentUser) {
     if (activePage === 'login') return <Login onLogin={handleLogin} initialPlan={selectedPlan} />;
-    if (activePage === 'privacy') return <PrivacyPolicy onBack={() => setActivePage('homepage')} />;
-    if (activePage === 'terms') return <Terms onBack={() => setActivePage('homepage')} />;
-    if (activePage === 'contact') return <Contact onBack={() => setActivePage('homepage')} />;
     
+    // Todas as outras páginas públicas usam o Layout
     return (
-        <Homepage 
-            onLogin={() => { setSelectedPlan(null); setActivePage('login'); }} 
-            onSelectPlan={handleSelectPlan} 
-            onOpenDocs={() => setShowDocs(true)} 
-            onPrivacy={() => setActivePage('privacy')} 
-            onTerms={() => setActivePage('terms')}
-            onContact={() => setActivePage('contact')}
-        />
+        <PublicLayout 
+            onNavigate={handleNavigate} 
+            onLogin={() => { setSelectedPlan(null); setActivePage('login'); }}
+            activePage={activePage}
+        >
+            {activePage === 'homepage' && (
+                <Homepage 
+                    onSelectPlan={handleSelectPlan} 
+                />
+            )}
+            {activePage === 'privacy' && <PrivacyPolicy />}
+            {activePage === 'terms' && <Terms />}
+            {activePage === 'contact' && <Contact />}
+        </PublicLayout>
     );
   }
 
+  // --- ROTAS PRIVADAS (Dashboard) ---
   const renderContent = () => {
+    if (activePage.startsWith('plugin-')) {
+       const pluginId = activePage.replace('plugin-', '');
+       const plugin = activePlugins.find(p => p.id === pluginId);
+       if (plugin) {
+          return <PluginViewer plugin={plugin} userToken={localStorage.getItem('token') || ''} />;
+       }
+    }
+
     switch (activePage) {
       // Admin Routes
-      case 'admin-dashboard':
-        return <AdminDashboard currentAdminId={currentUser.id} />;
-      case 'admin-logs':
-        return <AdminLogs />;
-      case 'admin-addons':
-        return <AdminAddons />;
-      case 'admin-plugins': 
-        return <AdminPlugins />;
-      case 'admin-users':
-        return <AdminUsers onLogin={handleLogin} />;
+      case 'admin-dashboard': return <AdminDashboard />;
+      case 'admin-logs': return <AdminLogs />;
+      case 'admin-addons': return <AdminAddons />;
+      case 'admin-plugins': return <AdminPlugins />;
+      case 'admin-users': return <AdminUsers onLogin={handleLogin} />;
       
       // Client Routes
-      case 'client-dashboard':
-        return <ClientDashboard user={currentUser} />;
-      case 'client-config':
-        return <ClientConfig user={currentUser} />;
-      case 'client-public-search':
-        return <PublicAdminSearch />;
-      case 'client-settings':
-        return <ClientProfile user={currentUser} onUpdate={(updated) => {
+      case 'client-dashboard': return <ClientDashboard user={currentUser} />;
+      case 'client-config': return <ClientConfig user={currentUser} />;
+      case 'client-public-search': return <PublicAdminSearch />;
+      case 'client-settings': return <ClientProfile user={currentUser} onUpdate={(updated) => {
             setCurrentUser(updated);
             localStorage.setItem('user_cache', JSON.stringify(updated));
         }} />;
       
-      default:
-        return <div className="p-8 text-white flex items-center justify-center h-full opacity-50">Página em construção</div>;
+      default: return <div className="p-8 text-white flex items-center justify-center h-full opacity-50">Página não encontrada.</div>;
     }
   };
 
   return (
     <div className="flex h-screen bg-slate-900 font-sans text-slate-200 overflow-hidden selection:bg-blue-500/30">
-      
       <Sidebar 
         user={currentUser} 
         activePage={activePage} 
@@ -183,27 +210,18 @@ export default function App() {
         onLogout={handleLogout}
         isOpen={isSidebarOpen}
         onCloseMobile={() => setIsSidebarOpen(false)}
+        plugins={activePlugins}
       />
-
       <main className="flex-1 flex flex-col h-full relative overflow-hidden bg-slate-900">
-        
-        {/* Mobile Header */}
         <header className="md:hidden flex items-center justify-between px-4 h-16 bg-slate-950 border-b border-slate-900 z-20 shrink-0 shadow-md">
           <div className="flex items-center gap-2">
              <div className="w-8 h-8 bg-gradient-to-br from-blue-600 to-indigo-600 rounded-lg flex items-center justify-center text-white font-bold text-xs shadow-lg">S</div>
              <span className="font-bold text-white tracking-tight">S.I.E. PRO</span>
           </div>
-          <button 
-            onClick={() => setIsSidebarOpen(true)} 
-            className="text-slate-400 hover:text-white p-2 transition-colors rounded hover:bg-slate-800"
-          >
-            <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16m-7 6h7" />
-            </svg>
+          <button onClick={() => setIsSidebarOpen(true)} className="text-slate-400 hover:text-white p-2 transition-colors rounded hover:bg-slate-800">
+            <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16m-7 6h7" /></svg>
           </button>
         </header>
-
-        {/* Scrollable Content Area */}
         <div className="flex-1 overflow-y-auto overflow-x-hidden scroll-smooth scrollbar-thin scrollbar-thumb-slate-800 scrollbar-track-transparent">
            {renderContent()}
         </div>

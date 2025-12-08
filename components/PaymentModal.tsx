@@ -7,10 +7,10 @@ interface PaymentModalProps {
   subscription: Subscription | undefined;
   onClose: () => void;
   onSuccess: () => void;
-  adminId: string;
+  // adminId removed as it is now handled by backend token
 }
 
-export const PaymentModal: React.FC<PaymentModalProps> = ({ user, subscription, onClose, onSuccess, adminId }) => {
+export const PaymentModal: React.FC<PaymentModalProps> = ({ user, subscription, onClose, onSuccess }) => {
   const [amount, setAmount] = useState('');
   const [refId, setRefId] = useState('');
   const [notes, setNotes] = useState('');
@@ -29,7 +29,7 @@ export const PaymentModal: React.FC<PaymentModalProps> = ({ user, subscription, 
         amount: parseFloat(amount),
         payment_date: new Date().toISOString().split('T')[0],
         reference_id: refId,
-        admin_recorded_by: adminId,
+        admin_recorded_by: '', // Backend will fill this from token
         notes: notes
       });
       onSuccess(); 

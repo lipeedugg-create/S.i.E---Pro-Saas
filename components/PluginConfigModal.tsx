@@ -11,7 +11,8 @@ interface PluginConfigModalProps {
 export const PluginConfigModal: React.FC<PluginConfigModalProps> = ({ plugin, onClose, onSuccess }) => {
   const [config, setConfig] = useState<PluginConfig>({
     systemPrompt: plugin.config?.systemPrompt || '',
-    negativePrompt: plugin.config?.negativePrompt || ''
+    negativePrompt: plugin.config?.negativePrompt || '',
+    useSearch: plugin.config?.useSearch || false
   });
   const [loading, setLoading] = useState(false);
 
@@ -19,7 +20,8 @@ export const PluginConfigModal: React.FC<PluginConfigModalProps> = ({ plugin, on
   const applyDefaults = () => {
     setConfig({
         systemPrompt: `Você é o SISTEMA SIE (Strategic Intelligence Enterprise).\nSua tarefa é gerar um relatório de transparência pública sobre a administração de uma cidade brasileira.`,
-        negativePrompt: `- Não use markdown no JSON.\n- Não invente dados (alucinação) se não tiver certeza, use estimativas claras.`
+        negativePrompt: `- Não use markdown no JSON.\n- Não invente dados (alucinação) se não tiver certeza, use estimativas claras.`,
+        useSearch: true
     });
   };
 
@@ -87,6 +89,25 @@ export const PluginConfigModal: React.FC<PluginConfigModalProps> = ({ plugin, on
               className="w-full bg-slate-950 border border-slate-700 text-slate-200 rounded-lg p-3 focus:border-red-500 outline-none h-24 font-mono text-sm leading-relaxed"
               placeholder="O que o agente NÃO deve fazer (ex: não usar markdown, não inventar datas)..."
             />
+          </div>
+
+          {/* Ferramentas e Recursos */}
+          <div className="bg-slate-950 rounded-lg p-4 border border-slate-800">
+              <label className="flex items-center gap-3 cursor-pointer group">
+                  <div className={`w-5 h-5 rounded border flex items-center justify-center transition-colors ${config.useSearch ? 'bg-blue-600 border-blue-600' : 'bg-slate-900 border-slate-600'}`}>
+                      {config.useSearch && <svg className="w-3.5 h-3.5 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" /></svg>}
+                  </div>
+                  <input 
+                      type="checkbox" 
+                      className="hidden" 
+                      checked={config.useSearch || false}
+                      onChange={(e) => setConfig({...config, useSearch: e.target.checked})} 
+                  />
+                  <div>
+                      <span className="block text-sm font-bold text-white group-hover:text-blue-400 transition-colors">Habilitar Google Search Grounding</span>
+                      <span className="block text-xs text-slate-500">Permite que o plugin acesse a internet em tempo real para buscar fatos e notícias. (Custo maior de tokens)</span>
+                  </div>
+              </label>
           </div>
 
           <div className="pt-4 flex gap-3 border-t border-slate-800">
