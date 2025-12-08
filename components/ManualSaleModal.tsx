@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Plan, User, Subscription } from '../types';
+import { Plan, User } from '../types';
 import { api } from '../services/api';
 
 interface ManualSaleModalProps {

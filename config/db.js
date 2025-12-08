@@ -13,49 +13,79 @@ const { Pool } = pg;
 // Configuração robusta para Produção e Local
 const connectionString = process.env.DATABASE_URL || `postgres://${process.env.DB_USER || 'postgres'}:${process.env.DB_PASSWORD || ''}@${process.env.DB_HOST || 'localhost'}:${process.env.DB_PORT || '5432'}/${process.env.DB_NAME || 'sie_pro'}`;
 
-// Detecta SSL necessário (Ambientes Cloud como Neon, AWS, Heroku geralmente exigem)
-const isCloud = connectionString.includes('neon.tech') || connectionString.includes('aws') || connectionString.includes('render');
+// Detecta SSL necessário (Ambientes Cloud como Neon, AWS, Heroku, Render geralmente exigem)
+const isCloud = connectionString.includes('neon.tech') || 
+                connectionString.includes('aws') || 
+                connectionString.includes('render') || 
+                connectionString.includes('herokuapp');
 
+// Configuração Otimizada do Pool
 const pool = new Pool({
   connectionString,
+  // Configuração SSL para Cloud
   ssl: isCloud ? { rejectUnauthorized: false } : false,
-  connectionTimeoutMillis: 10000, 
-  idleTimeoutMillis: 30000,
-  max: 20 
+  
+  // Limites do Pool
+  max: 20, // Máximo de clientes conectados simultaneamente (ajustar conforme RAM do servidor)
+  min: 2,  // Mínimo de clientes sempre abertos (reduz latência de start frio)
+  
+  // Timeouts e Limpeza
+  idleTimeoutMillis: 30000, // Clientes ociosos por 30s são fechados para liberar recursos
+  connectionTimeoutMillis: 5000, // Timeout para obter conexão do pool (fail fast se DB cair)
+  
+  // Statement Timeout (Segurança contra queries travadas)
+  // Define 15s como limite padrão para qualquer query (evita DOS por query lenta)
+  // Pode ser sobrescrito por query individualmente se necessário
+  statement_timeout: 15000, 
+  
+  allowExitOnIdle: false // Mantém o event loop ativo
 });
 
-// Teste de Conexão Imediato (Fail Fast)
-pool.connect()
-    .then(client => {
-        return client.query('SELECT NOW()')
-            .then(res => {
-                client.release();
-                console.log(`✅ Conexão com Banco de Dados estabelecida: ${res.rows[0].now}`);
-            })
-            .catch(err => {
-                client.release();
-                console.error('❌ Erro ao executar query de teste no banco:', err.message);
-            });
-    })
-    .catch(err => {
-        console.error('❌ FALHA CRÍTICA: Não foi possível conectar ao PostgreSQL.', err.message);
-        console.error('Verifique suas credenciais no arquivo .env');
-    });
+// Teste de Conexão Imediato (Fail Fast) com Retry Simples
+const testConnection = async (retries = 3) => {
+    while (retries > 0) {
+        try {
+            const client = await pool.connect();
+            const res = await client.query('SELECT NOW() as now');
+            client.release();
+            console.log(`✅ Conexão com Banco de Dados estabelecida: ${res.rows[0].now}`);
+            return;
+        } catch (err) {
+            retries--;
+            console.error(`⚠️ Falha ao conectar ao DB. Tentativas restantes: ${retries}. Erro: ${err.message}`);
+            if (retries === 0) {
+                console.error('❌ FALHA CRÍTICA: Não foi possível conectar ao PostgreSQL após múltiplas tentativas.');
+                // Não matamos o processo aqui para permitir que o servidor tente recuperar em runtime, 
+                // mas em orquestradores como K8s isso poderia ser um exit(1)
+            } else {
+                await new Promise(res => setTimeout(res, 2000)); // Espera 2s antes de tentar de novo
+            }
+        }
+    }
+};
+
+testConnection();
 
 pool.on('error', (err) => {
-  console.error('❌ Erro Inesperado no Client do Pool:', err.message);
+  console.error('❌ Erro Inesperado no Client do Pool (Idle):', err.message);
+  // Em produção, isso pode disparar um alerta para o SRE
 });
 
-// Wrapper para Queries (Abstração)
+// Wrapper para Queries (Abstração com Logging e Tratamento de Erro)
 export const query = async (text, params) => {
+    const start = Date.now();
     try {
-        const start = Date.now();
         const res = await pool.query(text, params);
-        // Opcional: Logar queries lentas (> 1s)
-        // const duration = Date.now() - start;
-        // if (duration > 1000) console.log('Slow Query:', { text, duration, rows: res.rowCount });
+        
+        // Log de queries lentas (> 500ms) para debugging
+        const duration = Date.now() - start;
+        if (duration > 500) {
+            console.warn(`⚠️ Slow Query (${duration}ms): ${text.substring(0, 100)}...`);
+        }
+        
         return res;
     } catch (error) {
+        // Log detalhado do erro SQL
         console.error(`❌ SQL Error: ${error.message} | Query: ${text.substring(0, 100)}...`);
         throw error;
     }

@@ -9,7 +9,7 @@ type TabType = 'ai-studio' | 'install' | 'architecture' | 'database';
 export const Documentation: React.FC<DocumentationProps> = ({ onClose }) => {
   const [activeTab, setActiveTab] = useState<TabType>('ai-studio');
 
-  const CopyBlock = ({ title, code, lang = 'text' }: { title: string, code: string, lang?: string }) => (
+  const CopyBlock = ({ title, code }: { title: string, code: string }) => (
     <div className="mb-8 rounded-xl overflow-hidden border border-slate-700 shadow-2xl bg-[#0d1117]">
       <div className="px-4 py-3 flex justify-between items-center border-b border-slate-700/50 bg-slate-800/50 backdrop-blur">
         <div className="flex items-center gap-2">
@@ -305,7 +305,6 @@ Descreva aqui o plugin que você deseja (Ex: "Um gerador de e-mails de cobrança
                         <h2 className="text-2xl font-bold text-white mb-6">Schema SQL Reference</h2>
                         <CopyBlock 
                             title="Tabelas do Sistema (PostgreSQL)"
-                            lang="sql"
                             code={`
 -- TABELAS PRINCIPAIS
 users (id, email, password_hash, role, status)

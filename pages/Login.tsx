@@ -52,7 +52,7 @@ export const Login: React.FC<LoginProps> = ({ onLogin, initialPlan }) => {
           setLoadingPlans(true);
           api.getPublicPlans()
              .then(setAvailablePlans)
-             .catch(err => setError('Erro ao carregar planos.'))
+             .catch(() => setError('Erro ao carregar planos.'))
              .finally(() => setLoadingPlans(false));
       }
   }, [mode]);
