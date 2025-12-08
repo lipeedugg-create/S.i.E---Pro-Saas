@@ -357,7 +357,7 @@ Use este esqueleto para garantir compatibilidade:
                                 Ele verifica a existência das tabelas e cria colunas faltantes se necessário.
                             </p>
                             <div className="font-mono text-xs bg-slate-950 p-4 rounded text-emerald-400">
-                                > node server.js<br/>
+                                &gt; node server.js<br/>
                                 🔌 Conectando ao PostgreSQL...<br/>
                                 🔄 Verificando integridade do Schema SQL...<br/>
                                 ✅ Admin Default criado/verificado<br/>
