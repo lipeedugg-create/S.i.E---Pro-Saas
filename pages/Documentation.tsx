@@ -235,7 +235,7 @@ Descreva aqui o plugin que você deseja (Ex: "Um gerador de e-mails de cobrança
                                     <div>
                                         <h3 className="font-bold text-white text-lg">Upload no Admin</h3>
                                         <p className="text-sm text-slate-400 mt-1">
-                                            Vá em <strong>Admin > Loja de Plugins</strong> e clique em "Upload Plugin". O sistema fará a validação e instalação automática.
+                                            Vá em <strong>Admin &gt; Loja de Plugins</strong> e clique em "Upload Plugin". O sistema fará a validação e instalação automática.
                                         </p>
                                     </div>
                                 </div>
