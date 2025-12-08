@@ -4,9 +4,10 @@ export interface User {
   email: string;
   role: 'admin' | 'client';
   name: string;
-  status?: 'active' | 'inactive' | 'suspended'; // Novo campo de controle de acesso
-  phone?: string; // Novo
-  last_login?: string; // Novo
+  status?: 'active' | 'inactive' | 'suspended';
+  phone?: string;
+  last_login?: string;
+  avatar?: string; // Base64 string for profile picture
   created_at?: string;
 }
 
@@ -25,6 +26,8 @@ export interface Plan {
   id: string;
   name: string;
   price: number;
+  description?: string;
+  token_limit?: number; // Limite de Tokens Gemini por mês
 }
 
 // Plugins / Addons System
@@ -68,6 +71,13 @@ export interface RequestLog {
   cost_usd: number;
   timestamp: string;
   status: string;
+}
+
+export interface UsageMetrics {
+  total_requests: number;
+  total_tokens: number;
+  estimated_cost: number;
+  plan_limit: number;
 }
 
 // Master Items (Results of Monitoring)

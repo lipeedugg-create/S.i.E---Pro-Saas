@@ -18,7 +18,8 @@ router.get('/users', async (req, res) => {
         FROM users 
         ORDER BY created_at DESC
     `).catch(async () => {
-         return await query('SELECT id, name, email, role, created_at FROM users ORDER BY created_at DESC');
+         // Fallback robusto garantindo que campos usados na UI existam
+         return await query('SELECT id, name, email, role, created_at, status, phone, last_login FROM users ORDER BY created_at DESC');
     });
     res.json(result.rows);
   } catch (err) {
@@ -210,11 +211,11 @@ router.get('/plans', async (req, res) => {
 });
 
 router.post('/plans', async (req, res) => {
-    const { id, name, price, description } = req.body;
+    const { id, name, price, description, token_limit } = req.body;
     try {
         const result = await query(
-            'INSERT INTO plans (id, name, price, description) VALUES ($1, $2, $3, $4) RETURNING *',
-            [id, name, price, description]
+            'INSERT INTO plans (id, name, price, description, token_limit) VALUES ($1, $2, $3, $4, $5) RETURNING *',
+            [id, name, price, description, token_limit || 10000]
         );
         res.json(result.rows[0]);
     } catch (err) {
@@ -224,11 +225,11 @@ router.post('/plans', async (req, res) => {
 
 router.put('/plans/:id', async (req, res) => {
     const { id } = req.params;
-    const { name, price, description } = req.body;
+    const { name, price, description, token_limit } = req.body;
     try {
         const result = await query(
-            'UPDATE plans SET name = $1, price = $2, description = $3 WHERE id = $4 RETURNING *',
-            [name, price, description, id]
+            'UPDATE plans SET name = $1, price = $2, description = $3, token_limit = $4 WHERE id = $5 RETURNING *',
+            [name, price, description, token_limit, id]
         );
         res.json(result.rows[0]);
     } catch (err) {

@@ -137,7 +137,7 @@ export const ClientConfig: React.FC<ClientConfigProps> = ({ user }) => {
   if (loading) return <div className="p-8 text-center text-slate-400">Carregando configurações...</div>;
 
   return (
-    <div className="p-6 md:p-8 max-w-5xl mx-auto min-h-full">
+    <div className="p-6 md:p-8 max-w-5xl mx-auto min-h-full text-slate-200">
       <div className="mb-8">
         <h2 className="text-2xl font-bold text-white mb-2">Configuração do Agente</h2>
         <p className="text-slate-400">Defina os parâmetros de busca e análise da Inteligência Artificial.</p>

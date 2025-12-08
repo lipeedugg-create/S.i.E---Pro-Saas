@@ -1,4 +1,4 @@
-import { User, Subscription, Payment, RequestLog, MasterItem, MonitoringConfig, Plugin, Plan, CityAdminData, PluginConfig } from '../types';
+import { User, Subscription, Payment, RequestLog, MasterItem, MonitoringConfig, Plugin, Plan, CityAdminData, PluginConfig, UsageMetrics } from '../types';
 
 const API_URL = '/api';
 
@@ -35,8 +35,23 @@ export const api = {
     return handleResponse(res);
   },
 
+  register: async (data: any): Promise<{ user: User, token: string }> => {
+    const res = await fetch(`${API_URL}/auth/register`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(data)
+    });
+    return handleResponse(res);
+  },
+
   validateSession: async (): Promise<User> => {
     const res = await fetch(`${API_URL}/auth/me`, { headers: getHeaders() });
+    return handleResponse(res);
+  },
+
+  // Busca pública de planos (para Homepage e Registro)
+  getPublicPlans: async (): Promise<Plan[]> => {
+    const res = await fetch(`${API_URL}/auth/plans`);
     return handleResponse(res);
   },
 
@@ -83,6 +98,7 @@ export const api = {
   },
 
   // --- SUBSCRIPTIONS & PLANS ---
+  // ADMIN ONLY
   getPlans: async (): Promise<Plan[]> => {
     const res = await fetch(`${API_URL}/admin/plans`, { headers: getHeaders() });
     return handleResponse(res);
@@ -109,6 +125,7 @@ export const api = {
     return handleResponse(res);
   },
 
+  // ADMIN ONLY
   getSubscriptions: async (): Promise<Subscription[]> => {
     const res = await fetch(`${API_URL}/admin/subscriptions`, { headers: getHeaders() });
     return handleResponse(res);
@@ -230,6 +247,37 @@ export const api = {
       method: 'POST',
       headers: getHeaders()
     });
+    return handleResponse(res);
+  },
+
+  // --- CLIENT PROFILE & METRICS ---
+  getClientProfile: async (): Promise<User> => {
+    const res = await fetch(`${API_URL}/client/profile`, { headers: getHeaders() });
+    return handleResponse(res);
+  },
+
+  updateClientProfile: async (data: Partial<User> & { new_password?: string }): Promise<User> => {
+    const res = await fetch(`${API_URL}/client/profile`, {
+        method: 'PUT',
+        headers: getHeaders(),
+        body: JSON.stringify(data)
+    });
+    return handleResponse(res);
+  },
+
+  getClientUsage: async (): Promise<UsageMetrics> => {
+    const res = await fetch(`${API_URL}/client/usage`, { headers: getHeaders() });
+    return handleResponse(res);
+  },
+
+  getClientPayments: async (): Promise<Payment[]> => {
+    const res = await fetch(`${API_URL}/client/financials`, { headers: getHeaders() });
+    return handleResponse(res);
+  },
+
+  // Gets the current logged in client's subscription
+  getClientSubscription: async (): Promise<Subscription | null> => {
+    const res = await fetch(`${API_URL}/client/subscription`, { headers: getHeaders() });
     return handleResponse(res);
   },
 

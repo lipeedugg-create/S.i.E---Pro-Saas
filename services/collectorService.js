@@ -40,7 +40,9 @@ const fetchWithTimeout = async (url, timeout = 10000) => {
 };
 
 async function analyzeWithGemini(text, keywords) {
-    if (!ai) return mockAnalysis(text);
+    if (!ai) {
+        throw new Error("Serviço de IA Indisponível (Sem API Key Configurada).");
+    }
 
     try {
         const prompt = `
@@ -83,23 +85,9 @@ async function analyzeWithGemini(text, keywords) {
         };
     } catch (e) {
         console.error("Gemini Error:", e);
-        return {
-            result: { sentiment: "Erro", impact: "N/A", summary: "Falha na análise IA", keywords: [] },
-            metrics: { tokens_in: 0, tokens_out: 0, cost: 0 }
-        };
+        // Retorna erro estruturado para o coletor registrar
+        throw e;
     }
-}
-
-function mockAnalysis(text) {
-    return {
-        result: {
-            sentiment: "Neutro (Simulado)",
-            impact: "Baixo",
-            summary: "Análise simulada (Sem API Key)",
-            keywords: ["Simulação"]
-        },
-        metrics: { tokens_in: 0, tokens_out: 0, cost: 0 }
-    };
 }
 
 export const runMonitoringCycle = async (specificUserId = null) => {

@@ -75,17 +75,17 @@ export const AdminAddons: React.FC = () => {
     }
   };
 
-  const handleTogglePlanAccess = async (pluginId: string, planId: string) => {
-      await api.togglePluginForPlan(pluginId, planId);
-      loadData();
+  // Helper para mostrar plugins do plano
+  const getPlanPlugins = (planId: string) => {
+      return plugins.filter(p => p.allowed_plans?.includes(planId));
   };
 
   return (
-    <div className="p-8 bg-slate-900 min-h-full text-slate-200">
+    <div className="p-6 lg:p-8 text-slate-200">
       <div className="flex justify-between items-center mb-8">
         <div>
             <h2 className="text-2xl font-bold text-white mb-2">Planos & Recursos</h2>
-            <p className="text-slate-500">Gerencie níveis de assinatura e distribuição de funcionalidades.</p>
+            <p className="text-slate-500">Gerencie a precificação e os pacotes de funcionalidades oferecidos.</p>
         </div>
         <button 
             onClick={handleCreatePlan}
@@ -112,34 +112,54 @@ export const AdminAddons: React.FC = () => {
                     <p className="text-slate-500 text-sm">Nenhum plano cadastrado.</p>
                 </div>
             ) : (
-                <ul className="space-y-3">
-                {plans.map(plan => (
-                    <li key={plan.id} className="p-4 bg-slate-900/50 rounded-lg border border-slate-700 hover:border-slate-500 transition-all group relative">
-                        <div className="flex justify-between items-start mb-2">
-                            <div>
-                                <span className="font-bold text-white text-lg">{plan.name}</span>
-                                <span className="ml-2 text-[10px] bg-slate-800 text-slate-500 px-1.5 py-0.5 rounded font-mono border border-slate-700">#{plan.id}</span>
+                <ul className="space-y-4">
+                {plans.map(plan => {
+                    const includedPlugins = getPlanPlugins(plan.id);
+                    return (
+                        <li key={plan.id} className="p-5 bg-slate-900/50 rounded-xl border border-slate-700 hover:border-slate-500 transition-all group relative shadow-sm">
+                            <div className="flex justify-between items-start mb-3">
+                                <div>
+                                    <span className="font-bold text-white text-lg">{plan.name}</span>
+                                    <span className="ml-2 text-[10px] bg-slate-800 text-slate-500 px-1.5 py-0.5 rounded font-mono border border-slate-700">#{plan.id}</span>
+                                </div>
+                                <span className="text-emerald-400 font-mono font-bold text-lg">R$ {Number(plan.price).toFixed(2)}</span>
                             </div>
-                            <span className="text-emerald-400 font-mono font-bold">R$ {Number(plan.price).toFixed(2)}</span>
-                        </div>
-                        <p className="text-xs text-slate-400 mb-4 line-clamp-2">{(plan as any).description}</p>
-                        
-                        <div className="flex gap-2 justify-end border-t border-slate-700 pt-2 opacity-60 group-hover:opacity-100 transition-opacity">
-                            <button 
-                                onClick={() => handleEditPlan(plan)}
-                                className="text-xs font-bold text-blue-400 hover:text-white px-2 py-1 rounded hover:bg-blue-600/20 transition-colors"
-                            >
-                                EDITAR
-                            </button>
-                            <button 
-                                onClick={() => handleDeletePlan(plan.id)}
-                                className="text-xs font-bold text-red-500 hover:text-white px-2 py-1 rounded hover:bg-red-600/20 transition-colors"
-                            >
-                                EXCLUIR
-                            </button>
-                        </div>
-                    </li>
-                ))}
+                            
+                            <p className="text-xs text-slate-400 mb-4 line-clamp-2 leading-relaxed">{(plan as any).description}</p>
+                            
+                            {/* Features Preview */}
+                            <div className="mb-4">
+                                <p className="text-[10px] font-bold text-slate-500 uppercase mb-1.5">Recursos Inclusos:</p>
+                                {includedPlugins.length > 0 ? (
+                                    <div className="flex flex-wrap gap-1.5">
+                                        {includedPlugins.map(p => (
+                                            <span key={p.id} className="inline-flex items-center gap-1 text-[10px] bg-blue-900/20 text-blue-300 px-2 py-1 rounded border border-blue-900/30" title={p.name}>
+                                                <span>{p.icon}</span> {p.name}
+                                            </span>
+                                        ))}
+                                    </div>
+                                ) : (
+                                    <span className="text-[10px] text-slate-600 italic">Apenas recursos básicos</span>
+                                )}
+                            </div>
+
+                            <div className="flex gap-2 justify-end border-t border-slate-800 pt-3 opacity-80 group-hover:opacity-100 transition-opacity">
+                                <button 
+                                    onClick={() => handleEditPlan(plan)}
+                                    className="text-xs font-bold text-blue-400 hover:text-white px-3 py-1.5 rounded hover:bg-blue-600/20 transition-colors border border-transparent hover:border-blue-500/30"
+                                >
+                                    EDITAR PACOTE
+                                </button>
+                                <button 
+                                    onClick={() => handleDeletePlan(plan.id)}
+                                    className="text-xs font-bold text-red-500 hover:text-white px-3 py-1.5 rounded hover:bg-red-600/20 transition-colors border border-transparent hover:border-red-500/30"
+                                >
+                                    EXCLUIR
+                                </button>
+                            </div>
+                        </li>
+                    );
+                })}
                 </ul>
             )}
           </div>
@@ -147,8 +167,11 @@ export const AdminAddons: React.FC = () => {
           {/* Features Toggles */}
           <div className="bg-slate-800 p-6 rounded-xl shadow-lg border border-slate-700 flex flex-col h-full">
             <h3 className="font-bold text-lg mb-6 text-white flex items-center gap-2 border-b border-slate-700 pb-4">
-              <span className="text-purple-500">⚡</span> Distribuição de Recursos
+              <span className="text-purple-500">⚡</span> Plugins Globais
             </h3>
+            <p className="text-xs text-slate-400 mb-6 -mt-2">
+                Ative ou desative plugins no sistema. Para associá-los a um plano, use o botão "Editar Pacote" na coluna ao lado.
+            </p>
             
             {plugins.length === 0 ? (
                 <div className="text-center p-8 bg-slate-900/50 rounded-lg border border-dashed border-slate-700 text-slate-500 text-sm">
@@ -159,12 +182,14 @@ export const AdminAddons: React.FC = () => {
               <div className="space-y-4">
                   {plugins.map(plugin => (
                       <div key={plugin.id} className="pb-4 border-b border-slate-700/50 last:border-0 last:pb-0">
-                          <div className="flex items-center justify-between mb-3">
+                          <div className="flex items-center justify-between">
                               <div className="flex items-center gap-3">
-                                  <span className="text-lg">{plugin.icon}</span>
+                                  <div className="w-10 h-10 rounded-lg bg-slate-900 border border-slate-700 flex items-center justify-center text-xl">
+                                      {plugin.icon}
+                                  </div>
                                   <div>
                                       <span className="block text-sm font-bold text-white">{plugin.name}</span>
-                                      <span className="text-xs text-slate-500">v{plugin.version} • {plugin.category}</span>
+                                      <span className="text-xs text-slate-500">{plugin.category} • <span className={plugin.status === 'active' ? 'text-green-500' : 'text-slate-500'}>{plugin.status.toUpperCase()}</span></span>
                                   </div>
                               </div>
                               <div className="flex items-center gap-3">
@@ -173,6 +198,7 @@ export const AdminAddons: React.FC = () => {
                                       className={`w-11 h-6 rounded-full relative cursor-pointer shadow-inner transition-colors ${
                                           plugin.status === 'active' ? 'bg-green-600' : 'bg-slate-600'
                                       }`}
+                                      title="Ligar/Desligar Globalmente"
                                   >
                                       <div className={`w-5 h-5 bg-white rounded-full absolute top-0.5 shadow-sm transition-all ${
                                           plugin.status === 'active' ? 'right-0.5' : 'left-0.5'
@@ -189,24 +215,6 @@ export const AdminAddons: React.FC = () => {
                                   </button>
                               </div>
                           </div>
-
-                          {plugin.status === 'active' && (
-                              <div className="ml-10 bg-slate-900/40 p-3 rounded-lg border border-slate-700/30 flex flex-wrap gap-4">
-                                  <span className="text-xs font-bold text-slate-500 w-full uppercase">Disponível em:</span>
-                                  {plans.map(plan => (
-                                      <label key={plan.id} className="flex items-center gap-2 cursor-pointer group select-none">
-                                          <input 
-                                              type="checkbox" 
-                                              checked={plugin.allowed_plans?.includes(plan.id)}
-                                              onChange={() => handleTogglePlanAccess(plugin.id, plan.id)}
-                                              className="w-4 h-4 rounded bg-slate-800 border-slate-600 text-blue-600 focus:ring-blue-500 focus:ring-offset-0"
-                                          />
-                                          <span className="text-xs text-slate-400 group-hover:text-white transition-colors">{plan.name}</span>
-                                      </label>
-                                  ))}
-                                  {plans.length === 0 && <span className="text-xs text-slate-600 italic">Crie planos primeiro</span>}
-                              </div>
-                          )}
                       </div>
                   ))}
               </div>
@@ -219,6 +227,7 @@ export const AdminAddons: React.FC = () => {
       {isPlanModalOpen && (
           <PlanModal 
              plan={editingPlan}
+             plugins={plugins}
              onClose={() => setIsPlanModalOpen(false)}
              onSuccess={handlePlanSuccess}
           />

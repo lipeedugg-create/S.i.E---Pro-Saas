@@ -1,13 +1,34 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
+import { api } from '../services/api';
+import { Plan } from '../types';
 
 interface HomepageProps {
   onLogin: () => void;
+  onSelectPlan: (planId: string) => void;
   onOpenDocs: () => void;
   onPrivacy: () => void;
+  onTerms: () => void;
+  onContact: () => void;
 }
 
-export const Homepage: React.FC<HomepageProps> = ({ onLogin, onOpenDocs, onPrivacy }) => {
+export const Homepage: React.FC<HomepageProps> = ({ onLogin, onSelectPlan, onOpenDocs, onPrivacy, onTerms, onContact }) => {
   const [isMenuOpen, setIsMenuOpen] = useState(false);
+  const [plans, setPlans] = useState<Plan[]>([]);
+  const [loadingPlans, setLoadingPlans] = useState(true);
+
+  useEffect(() => {
+    const fetchPlans = async () => {
+        try {
+            const data = await api.getPublicPlans();
+            setPlans(data);
+        } catch (e) {
+            console.error("Erro ao carregar planos", e);
+        } finally {
+            setLoadingPlans(false);
+        }
+    };
+    fetchPlans();
+  }, []);
 
   const scrollToSection = (id: string) => {
     const element = document.getElementById(id);
@@ -42,7 +63,7 @@ export const Homepage: React.FC<HomepageProps> = ({ onLogin, onOpenDocs, onPriva
                 Login
             </button>
             <button 
-                onClick={onLogin}
+                onClick={() => onSelectPlan('starter')}
                 className="bg-slate-800 hover:bg-slate-700 text-white px-5 py-2 rounded-lg font-medium border border-slate-700 transition-all shadow-lg hover:shadow-slate-700/50"
             >
                 Começar Agora
@@ -79,7 +100,7 @@ export const Homepage: React.FC<HomepageProps> = ({ onLogin, onOpenDocs, onPriva
         <div className="max-w-7xl mx-auto px-6 relative z-10 w-full text-center">
           <span className="inline-flex items-center gap-2 py-1 px-3 rounded-full bg-emerald-900/30 border border-emerald-800 text-emerald-300 text-xs font-bold uppercase tracking-wider mb-8 animate-fade-in-up shadow-lg shadow-emerald-900/20">
             <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></span>
-            Production Ready v3.0
+            Production Ready v5.0
           </span>
           
           <h1 className="text-5xl md:text-7xl font-bold mb-6 tracking-tight leading-tight">
@@ -201,72 +222,97 @@ export const Homepage: React.FC<HomepageProps> = ({ onLogin, onOpenDocs, onPriva
             </div>
             
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8 max-w-5xl mx-auto">
-                {/* Basic Plan */}
-                <div className="bg-slate-900 p-8 rounded-2xl border border-slate-800 flex flex-col hover:border-slate-700 transition-colors">
-                    <h3 className="text-xl font-bold text-white mb-2">Starter</h3>
-                    <p className="text-slate-500 text-sm mb-6">Para startups e monitoramento leve.</p>
-                    <div className="text-4xl font-bold text-white mb-6">R$ 99<span className="text-lg text-slate-500 font-normal">/mês</span></div>
-                    <ul className="space-y-3 mb-8 flex-1 text-slate-400 text-sm">
-                        <li className="flex gap-2">✓ 5 Palavras-chave</li>
-                        <li className="flex gap-2">✓ Atualização Diária</li>
-                        <li className="flex gap-2">✓ Dashboard Básico</li>
-                        <li className="flex gap-2 text-slate-600">✕ Análise de IA Avançada</li>
-                    </ul>
-                    <button onClick={onLogin} className="w-full py-3 border border-slate-700 text-white rounded-lg hover:bg-slate-800 font-medium transition-colors">Selecionar</button>
-                </div>
-
-                {/* Pro Plan (Featured) */}
-                <div className="bg-slate-800 p-8 rounded-2xl border border-blue-600 flex flex-col shadow-2xl relative transform md:-translate-y-4 hover:scale-[1.02] transition-transform duration-300">
-                    <div className="absolute top-0 right-0 bg-blue-600 text-white text-xs font-bold px-3 py-1 rounded-bl-lg rounded-tr-lg">POPULAR</div>
-                    <h3 className="text-xl font-bold text-white mb-2">Enterprise Pro</h3>
-                    <p className="text-blue-200 text-sm mb-6">Poder total de IA e tempo real.</p>
-                    <div className="text-4xl font-bold text-white mb-6">R$ 299<span className="text-lg text-slate-400 font-normal">/mês</span></div>
-                    <ul className="space-y-3 mb-8 flex-1 text-slate-300 text-sm">
-                        <li className="flex gap-2 text-white">✓ Palavras-chave Ilimitadas</li>
-                        <li className="flex gap-2 text-white">✓ Atualização em Tempo Real</li>
-                        <li className="flex gap-2 text-white">✓ IA Gemini 2.5 Flash</li>
-                        <li className="flex gap-2 text-white">✓ Alertas de Crise (Email/SMS)</li>
-                        <li className="flex gap-2 text-white">✓ Suporte Dedicado</li>
-                    </ul>
-                    <button onClick={onLogin} className="w-full py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 font-bold shadow-lg shadow-blue-900/50 transition-colors">Começar Trial</button>
-                </div>
-
-                {/* Custom Plan */}
-                <div className="bg-slate-900 p-8 rounded-2xl border border-slate-800 flex flex-col hover:border-slate-700 transition-colors">
-                    <h3 className="text-xl font-bold text-white mb-2">Governo</h3>
-                    <p className="text-slate-500 text-sm mb-6">Para órgãos públicos e grandes volumes.</p>
-                    <div className="text-4xl font-bold text-white mb-6">Sob Consulta</div>
-                    <ul className="space-y-3 mb-8 flex-1 text-slate-400 text-sm">
-                        <li className="flex gap-2">✓ Infraestrutura Dedicada (VPS)</li>
-                        <li className="flex gap-2">✓ SLA Garantido</li>
-                        <li className="flex gap-2">✓ Auditoria Personalizada</li>
-                        <li className="flex gap-2">✓ Treinamento de Equipe</li>
-                    </ul>
-                    <button className="w-full py-3 border border-slate-700 text-white rounded-lg hover:bg-slate-800 font-medium transition-colors">Falar com Consultor</button>
-                </div>
+                {loadingPlans ? (
+                    <div className="col-span-3 text-center text-slate-500 py-10">Carregando planos...</div>
+                ) : (
+                    plans.map(plan => (
+                        <div key={plan.id} className="bg-slate-900 p-8 rounded-2xl border border-slate-800 flex flex-col hover:border-slate-700 transition-colors shadow-lg relative">
+                            {plan.id === 'pro' && (
+                                <div className="absolute top-0 right-0 bg-blue-600 text-white text-xs font-bold px-3 py-1 rounded-bl-lg rounded-tr-xl">POPULAR</div>
+                            )}
+                            <h3 className="text-xl font-bold text-white mb-2">{plan.name}</h3>
+                            <div className="text-4xl font-bold text-white mb-6">
+                                R$ {Number(plan.price).toFixed(2)}
+                                <span className="text-lg text-slate-500 font-normal">/mês</span>
+                            </div>
+                            
+                            <div className="flex-1 mb-8">
+                                <p className="text-slate-400 text-sm leading-relaxed whitespace-pre-line">
+                                    {plan.description?.replace(/\./g, '.\n✓ ')}
+                                </p>
+                            </div>
+                            
+                            <button 
+                                onClick={() => onSelectPlan(plan.id)}
+                                className={`w-full py-3 rounded-lg font-bold transition-colors ${
+                                    plan.id === 'pro' 
+                                    ? 'bg-blue-600 text-white hover:bg-blue-700 shadow-lg shadow-blue-900/50' 
+                                    : 'border border-slate-700 text-white hover:bg-slate-800'
+                                }`}
+                            >
+                                Selecionar Plano
+                            </button>
+                        </div>
+                    ))
+                )}
             </div>
         </div>
       </section>
 
       {/* Footer */}
-      <footer className="border-t border-slate-800 bg-slate-950 py-12">
-        <div className="max-w-7xl mx-auto px-6 flex flex-col md:flex-row justify-between items-center gap-6">
-          <div className="text-center md:text-left">
-              <div className="font-bold text-xl text-white mb-1">S.I.E. PRO</div>
-              <p className="text-slate-500 text-sm">Sistema Integrado de Estratégia.</p>
-              <div className="flex gap-4 mt-4 text-xs text-slate-600">
-                 <button onClick={onPrivacy} className="hover:text-blue-400 transition-colors">Política de Privacidade</button>
-                 <span>© 2024 Todos os direitos reservados.</span>
-              </div>
-          </div>
-          
-          {/* Terminal Link */}
-          <button 
-            onClick={onOpenDocs}
-            className="flex items-center gap-2 text-xs font-mono text-green-500 hover:text-green-400 bg-slate-900 px-6 py-3 rounded-lg border border-slate-800 hover:border-green-900 transition-all shadow-lg"
-          >
-            <span className="animate-pulse">_&gt;</span> Acessar Documentação Técnica & Deploy
-          </button>
+      <footer className="border-t border-slate-800 bg-slate-950 pt-16 pb-8">
+        <div className="max-w-7xl mx-auto px-6">
+            <div className="grid grid-cols-1 md:grid-cols-4 gap-12 mb-12">
+                <div className="md:col-span-1">
+                    <div className="flex items-center gap-2 mb-4">
+                        <div className="w-8 h-8 bg-blue-600 rounded-lg flex items-center justify-center font-bold text-xs">S</div>
+                        <span className="font-bold text-xl">S.I.E. PRO</span>
+                    </div>
+                    <p className="text-slate-500 text-sm leading-relaxed mb-6">
+                        Plataforma líder em inteligência de dados para gestão de reputação e monitoramento de crises.
+                    </p>
+                    <div className="flex gap-4">
+                        <a href="#" className="text-slate-400 hover:text-white transition-colors">LinkedIn</a>
+                        <a href="#" className="text-slate-400 hover:text-white transition-colors">Twitter</a>
+                    </div>
+                </div>
+
+                <div>
+                    <h4 className="font-bold text-white mb-4">Produto</h4>
+                    <ul className="space-y-2 text-sm text-slate-400">
+                        <li><button onClick={() => scrollToSection('solutions')} className="hover:text-blue-400 transition-colors">Funcionalidades</button></li>
+                        <li><button onClick={() => scrollToSection('plans')} className="hover:text-blue-400 transition-colors">Planos & Preços</button></li>
+                        <li><button onClick={() => scrollToSection('tech')} className="hover:text-blue-400 transition-colors">API & Integrações</button></li>
+                    </ul>
+                </div>
+
+                <div>
+                    <h4 className="font-bold text-white mb-4">Suporte</h4>
+                    <ul className="space-y-2 text-sm text-slate-400">
+                        <li><button onClick={onOpenDocs} className="hover:text-blue-400 transition-colors">Documentação Técnica</button></li>
+                        <li><button onClick={onContact} className="hover:text-blue-400 transition-colors">Fale Conosco</button></li>
+                        <li><button onClick={onContact} className="hover:text-blue-400 transition-colors">Status do Sistema</button></li>
+                    </ul>
+                </div>
+
+                <div>
+                    <h4 className="font-bold text-white mb-4">Legal</h4>
+                    <ul className="space-y-2 text-sm text-slate-400">
+                        <li><button onClick={onPrivacy} className="hover:text-blue-400 transition-colors">Política de Privacidade</button></li>
+                        <li><button onClick={onTerms} className="hover:text-blue-400 transition-colors">Termos de Uso</button></li>
+                        <li><span className="text-slate-600 cursor-not-allowed">Compliance (LGPD)</span></li>
+                    </ul>
+                </div>
+            </div>
+
+            <div className="border-t border-slate-800 pt-8 flex flex-col md:flex-row justify-between items-center gap-4 text-xs text-slate-600">
+                <span>© 2024 S.I.E. PRO Inc. Todos os direitos reservados.</span>
+                <div className="flex gap-4">
+                    <span>São Paulo, Brasil</span>
+                    <span>•</span>
+                    <span>v5.1 Enterprise</span>
+                </div>
+            </div>
         </div>
       </footer>
     </div>

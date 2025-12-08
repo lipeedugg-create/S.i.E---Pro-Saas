@@ -128,7 +128,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ currentAdminId }
   }
 
   return (
-    <div className="p-8 bg-slate-900 min-h-full text-slate-200">
+    <div className="p-6 lg:p-8 text-slate-200">
       <div className="mb-8">
         <h2 className="text-2xl font-bold text-white">Visão Geral (Produção)</h2>
         <p className="text-slate-500">Dados em tempo real do banco PostgreSQL.</p>

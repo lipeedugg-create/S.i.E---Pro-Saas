@@ -18,6 +18,10 @@ export const AdminUsers: React.FC<AdminUsersProps> = ({ onLogin }) => {
   const [statusFilter, setStatusFilter] = useState<'all' | 'active' | 'inactive'>('all');
   const [planFilter, setPlanFilter] = useState('all');
 
+  // Pagination State
+  const [currentPage, setCurrentPage] = useState(1);
+  const itemsPerPage = 10;
+
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingUser, setEditingUser] = useState<User | null>(null);
 
@@ -43,6 +47,11 @@ export const AdminUsers: React.FC<AdminUsersProps> = ({ onLogin }) => {
     loadData();
   }, []);
 
+  // Reset page when filters change
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [searchTerm, statusFilter, planFilter]);
+
   const handleCreate = () => {
     setEditingUser(null);
     setIsModalOpen(true);
@@ -59,7 +68,6 @@ export const AdminUsers: React.FC<AdminUsersProps> = ({ onLogin }) => {
 
     try {
       const { user: impersonatedUser, token } = await api.impersonate(user.id);
-      // ATUALIZAÇÃO: Salva cache local para persistência imediata
       localStorage.setItem('token', token);
       localStorage.setItem('user_cache', JSON.stringify(impersonatedUser));
       
@@ -74,7 +82,7 @@ export const AdminUsers: React.FC<AdminUsersProps> = ({ onLogin }) => {
     loadData();
   };
 
-  // Lógica de Filtragem
+  // Lógica de Filtragem e Paginação
   const filteredUsers = users.filter(user => {
     const matchesSearch = user.name.toLowerCase().includes(searchTerm.toLowerCase()) || 
                           user.email.toLowerCase().includes(searchTerm.toLowerCase());
@@ -86,8 +94,19 @@ export const AdminUsers: React.FC<AdminUsersProps> = ({ onLogin }) => {
     return matchesSearch && matchesStatus && matchesPlan;
   });
 
+  const indexOfLastItem = currentPage * itemsPerPage;
+  const indexOfFirstItem = indexOfLastItem - itemsPerPage;
+  const currentUsers = filteredUsers.slice(indexOfFirstItem, indexOfLastItem);
+  const totalPages = Math.ceil(filteredUsers.length / itemsPerPage);
+
+  const handlePageChange = (newPage: number) => {
+      if (newPage >= 1 && newPage <= totalPages) {
+          setCurrentPage(newPage);
+      }
+  };
+
   return (
-    <div className="p-8 bg-slate-900 min-h-full text-slate-200">
+    <div className="p-6 lg:p-8 text-slate-200">
       {/* Header & Metrics */}
       <div className="mb-8">
         <h2 className="text-2xl font-bold text-white mb-2">Visão Geral de Clientes (CRM)</h2>
@@ -96,7 +115,7 @@ export const AdminUsers: React.FC<AdminUsersProps> = ({ onLogin }) => {
                 <p className="text-slate-500 text-xs font-bold uppercase">Total Clientes</p>
                 <p className="text-2xl font-bold text-white mt-1">{users.length}</p>
             </div>
-            {/* Outros cards de métricas... */}
+            {/* Outros cards de métricas podem ser adicionados aqui */}
         </div>
       </div>
 
@@ -119,7 +138,7 @@ export const AdminUsers: React.FC<AdminUsersProps> = ({ onLogin }) => {
                 onChange={(e) => setStatusFilter(e.target.value as any)}
                 className="bg-slate-950 border border-slate-700 text-slate-300 rounded-lg px-3 py-2 text-sm outline-none focus:border-blue-500"
             >
-                <option value="all">Todos os Status</option>
+                <option value="all">Status: Todos</option>
                 <option value="active">Ativos</option>
                 <option value="inactive">Inativos</option>
             </select>
@@ -129,7 +148,7 @@ export const AdminUsers: React.FC<AdminUsersProps> = ({ onLogin }) => {
                 onChange={(e) => setPlanFilter(e.target.value)}
                 className="bg-slate-950 border border-slate-700 text-slate-300 rounded-lg px-3 py-2 text-sm outline-none focus:border-blue-500"
             >
-                <option value="all">Todos os Planos</option>
+                <option value="all">Planos: Todos</option>
                 {plans.map(p => <option key={p.id} value={p.id}>{p.name}</option>)}
             </select>
           </div>
@@ -148,69 +167,140 @@ export const AdminUsers: React.FC<AdminUsersProps> = ({ onLogin }) => {
             Carregando base de clientes...
         </div>
       ) : (
-        <div className="bg-slate-800 rounded-xl border border-slate-700 overflow-hidden shadow-xl">
-          <table className="w-full text-left text-sm text-slate-300">
-            <thead className="bg-slate-950 text-slate-400 font-semibold uppercase text-xs border-b border-slate-800">
-              <tr>
-                <th className="px-6 py-4">Cliente</th>
-                <th className="px-6 py-4">Status Conta</th>
-                <th className="px-6 py-4">Plano Atual</th>
-                <th className="px-6 py-4 text-right">Ações</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-slate-700/50">
-              {filteredUsers.length === 0 ? (
-                 <tr><td colSpan={4} className="px-6 py-12 text-center text-slate-500 italic">Nenhum cliente encontrado.</td></tr>
-              ) : (
-                filteredUsers.map(user => {
-                  const sub = subs.find(s => s.user_id === user.id);
-                  const plan = plans.find(p => p.id === sub?.plan_id);
-                  const isActive = (user.status || 'active') === 'active';
-                  
-                  return (
-                    <tr key={user.id} className="hover:bg-slate-700/30 transition-colors group">
-                      <td className="px-6 py-4">
-                        <div className="flex items-center gap-3">
-                            <div className="w-10 h-10 rounded-full bg-slate-700 flex items-center justify-center text-white font-bold text-sm border-2 border-slate-600">
-                                {user.name.charAt(0).toUpperCase()}
+        <>
+            <div className="bg-slate-800 rounded-xl border border-slate-700 overflow-hidden shadow-xl">
+            <table className="w-full text-left text-sm text-slate-300">
+                <thead className="bg-slate-950 text-slate-400 font-semibold uppercase text-xs border-b border-slate-800">
+                <tr>
+                    <th className="px-6 py-4">Usuário</th>
+                    <th className="px-6 py-4">Papel (Role)</th>
+                    <th className="px-6 py-4">Status Conta</th>
+                    <th className="px-6 py-4">Status Assinatura</th>
+                    <th className="px-6 py-4 text-right">Ações</th>
+                </tr>
+                </thead>
+                <tbody className="divide-y divide-slate-700/50">
+                {currentUsers.length === 0 ? (
+                    <tr><td colSpan={5} className="px-6 py-12 text-center text-slate-500 italic">Nenhum cliente encontrado.</td></tr>
+                ) : (
+                    currentUsers.map(user => {
+                    const sub = subs.find(s => s.user_id === user.id);
+                    const plan = plans.find(p => p.id === sub?.plan_id);
+                    const isAccountActive = (user.status || 'active') === 'active';
+                    
+                    // Cálculo de Status de Assinatura
+                    let subStatusLabel = 'Sem Assinatura';
+                    let subStatusColor = 'text-slate-500 bg-slate-900 border-slate-700';
+                    
+                    if (sub) {
+                         const isExpired = sub.status === 'expired' || (sub.end_date && new Date(sub.end_date) < new Date());
+                         if (isExpired) {
+                             subStatusLabel = `${plan?.name || 'Plano'} (Expirado)`;
+                             subStatusColor = 'text-red-400 bg-red-900/20 border-red-900/30';
+                         } else {
+                             subStatusLabel = `${plan?.name || 'Plano'} (Ativo)`;
+                             subStatusColor = 'text-emerald-400 bg-emerald-900/20 border-emerald-900/30';
+                         }
+                    }
+
+                    return (
+                        <tr key={user.id} className="hover:bg-slate-700/30 transition-colors group">
+                        <td className="px-6 py-4">
+                            <div className="flex items-center gap-3">
+                                <div className="w-10 h-10 rounded-full bg-slate-700 flex items-center justify-center text-white font-bold text-sm border-2 border-slate-600">
+                                    {user.name.charAt(0).toUpperCase()}
+                                </div>
+                                <div>
+                                    <div className="font-bold text-white text-sm">{user.name}</div>
+                                    <div className="text-slate-500 text-xs">{user.email}</div>
+                                </div>
                             </div>
-                            <div>
-                                <div className="font-bold text-white text-sm">{user.name}</div>
-                                <div className="text-slate-500 text-xs">{user.email}</div>
+                        </td>
+                        <td className="px-6 py-4">
+                             <span className={`text-xs font-mono px-2 py-1 rounded ${user.role === 'admin' ? 'bg-purple-900/30 text-purple-400 border border-purple-900/50' : 'text-slate-400'}`}>
+                                 {user.role.toUpperCase()}
+                             </span>
+                        </td>
+                        <td className="px-6 py-4">
+                            <span className={`px-2.5 py-1 rounded-full text-[10px] font-bold uppercase border ${isAccountActive ? 'bg-blue-900/20 text-blue-400 border-blue-900/30' : 'bg-red-900/20 text-red-400 border-red-900/30'}`}>
+                            {isAccountActive ? 'Habilitado' : 'Bloqueado'}
+                            </span>
+                        </td>
+                        <td className="px-6 py-4">
+                             <span className={`px-2 py-1 rounded text-xs font-bold border ${subStatusColor}`}>
+                                 {subStatusLabel}
+                             </span>
+                        </td>
+                        <td className="px-6 py-4 text-right">
+                            <div className="flex items-center justify-end gap-2 opacity-80 group-hover:opacity-100 transition-opacity">
+                                {user.role !== 'admin' && (
+                                    <button
+                                        onClick={() => handleImpersonate(user)}
+                                        className="bg-amber-900/20 hover:bg-amber-900/40 text-amber-500 text-xs font-bold px-3 py-1.5 rounded border border-amber-900/50 hover:border-amber-500"
+                                        title="Login como usuário"
+                                    >
+                                        Login
+                                    </button>
+                                )}
+                                <button onClick={() => handleEdit(user)} className="bg-slate-700 hover:bg-blue-600 text-white text-xs font-bold px-3 py-1.5 rounded border border-slate-600 hover:border-blue-500">
+                                Gerenciar
+                                </button>
                             </div>
-                        </div>
-                      </td>
-                      <td className="px-6 py-4">
-                        <span className={`px-2.5 py-1 rounded-full text-[10px] font-bold uppercase border ${isActive ? 'bg-emerald-900/20 text-emerald-400 border-emerald-900/30' : 'bg-red-900/20 text-red-400 border-red-900/30'}`}>
-                          {isActive ? 'Ativo' : 'Inativo'}
-                        </span>
-                      </td>
-                      <td className="px-6 py-4">
-                        {sub ? <span className="text-white text-xs bg-slate-900 px-2 py-1 rounded border border-slate-700">{plan ? plan.name : sub.plan_id}</span> : <span className="text-slate-600 text-xs italic">Sem assinatura</span>}
-                      </td>
-                      <td className="px-6 py-4 text-right">
-                         <div className="flex items-center justify-end gap-2 opacity-80 group-hover:opacity-100 transition-opacity">
-                             {user.role !== 'admin' && (
-                                 <button
-                                    onClick={() => handleImpersonate(user)}
-                                    className="bg-amber-900/20 hover:bg-amber-900/40 text-amber-500 text-xs font-bold px-3 py-1.5 rounded border border-amber-900/50 hover:border-amber-500"
-                                    title="Login como usuário"
-                                 >
-                                    Login
-                                 </button>
-                             )}
-                             <button onClick={() => handleEdit(user)} className="bg-slate-700 hover:bg-blue-600 text-white text-xs font-bold px-3 py-1.5 rounded border border-slate-600 hover:border-blue-500">
-                               Gerenciar
-                             </button>
-                         </div>
-                      </td>
-                    </tr>
-                  );
-                })
-              )}
-            </tbody>
-          </table>
-        </div>
+                        </td>
+                        </tr>
+                    );
+                    })
+                )}
+                </tbody>
+            </table>
+            
+            {/* Pagination Controls */}
+            {filteredUsers.length > 0 && (
+                <div className="bg-slate-950 px-6 py-4 border-t border-slate-800 flex flex-col md:flex-row justify-between items-center gap-4">
+                    <span className="text-sm text-slate-500">
+                        Mostrando <span className="font-bold text-white">{indexOfFirstItem + 1}</span> a <span className="font-bold text-white">{Math.min(indexOfLastItem, filteredUsers.length)}</span> de <span className="font-bold text-white">{filteredUsers.length}</span> usuários
+                    </span>
+                    
+                    <div className="flex gap-2">
+                        <button 
+                            onClick={() => handlePageChange(currentPage - 1)}
+                            disabled={currentPage === 1}
+                            className="px-3 py-1 rounded border border-slate-700 text-slate-400 hover:text-white hover:bg-slate-800 disabled:opacity-50 disabled:cursor-not-allowed text-xs font-bold"
+                        >
+                            Anterior
+                        </button>
+                        
+                        {Array.from({ length: totalPages }, (_, i) => i + 1)
+                            .filter(p => p === 1 || p === totalPages || (p >= currentPage - 1 && p <= currentPage + 1))
+                            .map((p, i, arr) => (
+                                <React.Fragment key={p}>
+                                    {i > 0 && arr[i - 1] !== p - 1 && <span className="text-slate-600 px-1">...</span>}
+                                    <button
+                                        onClick={() => handlePageChange(p)}
+                                        className={`w-8 h-8 rounded text-xs font-bold border transition-colors ${
+                                            currentPage === p 
+                                            ? 'bg-blue-600 text-white border-blue-600' 
+                                            : 'bg-slate-900 text-slate-400 border-slate-700 hover:bg-slate-800'
+                                        }`}
+                                    >
+                                        {p}
+                                    </button>
+                                </React.Fragment>
+                            ))
+                        }
+
+                        <button 
+                            onClick={() => handlePageChange(currentPage + 1)}
+                            disabled={currentPage === totalPages}
+                            className="px-3 py-1 rounded border border-slate-700 text-slate-400 hover:text-white hover:bg-slate-800 disabled:opacity-50 disabled:cursor-not-allowed text-xs font-bold"
+                        >
+                            Próximo
+                        </button>
+                    </div>
+                </div>
+            )}
+            </div>
+        </>
       )}
 
       {isModalOpen && (

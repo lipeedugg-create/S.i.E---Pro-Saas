@@ -47,7 +47,7 @@ export const AdminPlugins: React.FC = () => {
   const filteredPlugins = plugins.filter(p => filter === 'all' || p.category === filter);
 
   return (
-    <div className="p-8 bg-slate-900 min-h-full text-slate-200">
+    <div className="p-6 lg:p-8 text-slate-200">
       <div className="flex flex-col md:flex-row justify-between items-start md:items-center mb-8 gap-4">
         <div>
           <h2 className="text-2xl font-bold text-white mb-1">Loja de Plugins & Módulos</h2>

@@ -4,6 +4,8 @@ import { Login } from './pages/Login';
 import { Homepage } from './pages/Homepage';
 import { Documentation } from './pages/Documentation'; 
 import { PrivacyPolicy } from './pages/PrivacyPolicy';
+import { Terms } from './pages/Terms';
+import { Contact } from './pages/Contact';
 import { Sidebar } from './components/Sidebar';
 import { AdminDashboard } from './pages/admin/AdminDashboard';
 import { AdminLogs } from './pages/admin/AdminLogs';
@@ -13,6 +15,7 @@ import { AdminUsers } from './pages/admin/AdminUsers';
 import { ClientDashboard } from './pages/client/ClientDashboard';
 import { ClientConfig } from './pages/client/ClientConfig';
 import { PublicAdminSearch } from './pages/client/PublicAdminSearch';
+import { ClientProfile } from './pages/client/ClientProfile';
 import { User } from './types';
 
 export default function App() {
@@ -22,6 +25,9 @@ export default function App() {
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
   const [isAuthLoading, setIsAuthLoading] = useState(true);
 
+  // New State: Pass selected plan from Homepage to Register Flow
+  const [selectedPlan, setSelectedPlan] = useState<string | null>(null);
+
   // Restore Session on Load (Optimistic + Validation)
   useEffect(() => {
     const checkSession = async () => {
@@ -29,13 +35,10 @@ export default function App() {
         const cachedUserStr = localStorage.getItem('user_cache');
 
         // 1. Hidratação Otimista (Optimistic Hydration)
-        // Se temos token e cache, assumimos login IMEDIATO para evitar o "piscar"
         if (token && cachedUserStr) {
             try {
                 const cachedUser = JSON.parse(cachedUserStr);
                 setCurrentUser(cachedUser);
-                // Se o usuário estava na Home, redireciona. 
-                // Se já estava navegando, mantém onde estava (não reseta pra Home).
                 if (activePage === 'homepage' || activePage === 'login') {
                      setActivePage(cachedUser.role === 'admin' ? 'admin-dashboard' : 'client-dashboard');
                 }
@@ -52,19 +55,14 @@ export default function App() {
         // 2. Validação Assíncrona no Servidor
         try {
             const freshUser = await api.validateSession();
-            // Atualiza com dados frescos do servidor
             setCurrentUser(freshUser);
             localStorage.setItem('user_cache', JSON.stringify(freshUser));
             
-            // Redirecionamento inicial apenas se ainda estiver na tela de load/login
             if (!currentUser && (activePage === 'login' || activePage === 'homepage')) {
                  setActivePage(freshUser.role === 'admin' ? 'admin-dashboard' : 'client-dashboard');
             }
         } catch (error: any) {
             console.error("Sessão:", error.message);
-            
-            // CRITICAL FIX: Logout APENAS se o erro for 401/403 (Auth Error).
-            // Se for erro de rede (500, Failed to Fetch), MANTÉM o usuário logado via cache (Modo Offline/Resiliente).
             if (error.message.includes('AUTH_ERROR') || error.message.includes('Sessão expirada')) {
                 console.warn("Token inválido ou expirado. Realizando logout.");
                 localStorage.removeItem('token');
@@ -73,7 +71,6 @@ export default function App() {
                 setActivePage('homepage');
             } else {
                 console.warn("Backend indisponível momentaneamente. Mantendo sessão em cache.");
-                // Opcional: Mostrar toast de "Conexão Instável" aqui
             }
         } finally {
             setIsAuthLoading(false);
@@ -81,7 +78,7 @@ export default function App() {
     };
 
     checkSession();
-  }, []); // Run once on mount
+  }, []); 
 
   const handleLogin = (user: User) => {
     setCurrentUser(user);
@@ -95,6 +92,20 @@ export default function App() {
     setActivePage('homepage'); 
   };
 
+  const handleNavigate = (page: string) => {
+    if (page === 'documentation') {
+      setShowDocs(true);
+    } else {
+      setActivePage(page);
+    }
+  };
+
+  // Handler for Homepage "Select Plan"
+  const handleSelectPlan = (planId: string) => {
+      setSelectedPlan(planId);
+      setActivePage('login');
+  };
+
   if (isAuthLoading && !currentUser) {
       return (
           <div className="h-screen w-screen bg-slate-950 flex items-center justify-center">
@@ -106,15 +117,28 @@ export default function App() {
       );
   }
 
+  // Se o docs estiver aberto, renderiza ele sobre tudo (Modal Fullscreen)
   if (showDocs) {
     return <Documentation onClose={() => setShowDocs(false)} />;
   }
 
   // Rotas Públicas
   if (!currentUser) {
-    if (activePage === 'login') return <Login onLogin={handleLogin} />;
+    if (activePage === 'login') return <Login onLogin={handleLogin} initialPlan={selectedPlan} />;
     if (activePage === 'privacy') return <PrivacyPolicy onBack={() => setActivePage('homepage')} />;
-    return <Homepage onLogin={() => setActivePage('login')} onOpenDocs={() => setShowDocs(true)} onPrivacy={() => setActivePage('privacy')} />;
+    if (activePage === 'terms') return <Terms onBack={() => setActivePage('homepage')} />;
+    if (activePage === 'contact') return <Contact onBack={() => setActivePage('homepage')} />;
+    
+    return (
+        <Homepage 
+            onLogin={() => { setSelectedPlan(null); setActivePage('login'); }} 
+            onSelectPlan={handleSelectPlan} 
+            onOpenDocs={() => setShowDocs(true)} 
+            onPrivacy={() => setActivePage('privacy')} 
+            onTerms={() => setActivePage('terms')}
+            onContact={() => setActivePage('contact')}
+        />
+    );
   }
 
   const renderContent = () => {
@@ -138,6 +162,11 @@ export default function App() {
         return <ClientConfig user={currentUser} />;
       case 'client-public-search':
         return <PublicAdminSearch />;
+      case 'client-settings':
+        return <ClientProfile user={currentUser} onUpdate={(updated) => {
+            setCurrentUser(updated);
+            localStorage.setItem('user_cache', JSON.stringify(updated));
+        }} />;
       
       default:
         return <div className="p-8 text-white flex items-center justify-center h-full opacity-50">Página em construção</div>;
@@ -145,29 +174,28 @@ export default function App() {
   };
 
   return (
-    <div className="flex h-screen bg-slate-950 font-sans text-slate-200 overflow-hidden selection:bg-blue-500/30">
+    <div className="flex h-screen bg-slate-900 font-sans text-slate-200 overflow-hidden selection:bg-blue-500/30">
       
-      {/* Sidebar (Responsive) */}
       <Sidebar 
         user={currentUser} 
         activePage={activePage} 
-        onNavigate={setActivePage}
+        onNavigate={handleNavigate}
         onLogout={handleLogout}
         isOpen={isSidebarOpen}
         onCloseMobile={() => setIsSidebarOpen(false)}
       />
 
-      <main className="flex-1 flex flex-col h-full relative overflow-hidden bg-slate-950">
+      <main className="flex-1 flex flex-col h-full relative overflow-hidden bg-slate-900">
         
-        {/* Mobile Header (Sticky) */}
-        <header className="md:hidden flex items-center justify-between px-4 h-16 bg-slate-950/90 backdrop-blur-md border-b border-slate-900 z-20 shrink-0">
+        {/* Mobile Header */}
+        <header className="md:hidden flex items-center justify-between px-4 h-16 bg-slate-950 border-b border-slate-900 z-20 shrink-0 shadow-md">
           <div className="flex items-center gap-2">
-             <div className="w-8 h-8 bg-gradient-to-br from-blue-600 to-indigo-600 rounded flex items-center justify-center text-white font-bold text-xs shadow-lg">S</div>
+             <div className="w-8 h-8 bg-gradient-to-br from-blue-600 to-indigo-600 rounded-lg flex items-center justify-center text-white font-bold text-xs shadow-lg">S</div>
              <span className="font-bold text-white tracking-tight">S.I.E. PRO</span>
           </div>
           <button 
             onClick={() => setIsSidebarOpen(true)} 
-            className="text-slate-400 hover:text-white p-2 transition-colors"
+            className="text-slate-400 hover:text-white p-2 transition-colors rounded hover:bg-slate-800"
           >
             <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16m-7 6h7" />
@@ -176,7 +204,7 @@ export default function App() {
         </header>
 
         {/* Scrollable Content Area */}
-        <div className="flex-1 overflow-y-auto overflow-x-hidden scroll-smooth">
+        <div className="flex-1 overflow-y-auto overflow-x-hidden scroll-smooth scrollbar-thin scrollbar-thumb-slate-800 scrollbar-track-transparent">
            {renderContent()}
         </div>
       </main>

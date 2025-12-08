@@ -22,6 +22,7 @@ export const initDatabase = async () => {
         role VARCHAR(50) DEFAULT 'client' CHECK (role IN ('admin', 'client')),
         status VARCHAR(20) DEFAULT 'active' CHECK (status IN ('active', 'inactive', 'suspended')),
         phone VARCHAR(50),
+        avatar TEXT,
         last_login TIMESTAMP WITH TIME ZONE,
         created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
     );
@@ -31,7 +32,8 @@ export const initDatabase = async () => {
         id VARCHAR(50) PRIMARY KEY,
         name VARCHAR(100) NOT NULL,
         price DECIMAL(10, 2) NOT NULL,
-        description TEXT
+        description TEXT,
+        token_limit BIGINT DEFAULT 10000
     );
 
     -- 3. PLUGINS
@@ -122,16 +124,28 @@ export const initDatabase = async () => {
         `ALTER TABLE users ADD COLUMN IF NOT EXISTS status VARCHAR(20) DEFAULT 'active' CHECK (status IN ('active', 'inactive', 'suspended'))`,
         `ALTER TABLE users ADD COLUMN IF NOT EXISTS phone VARCHAR(50)`,
         `ALTER TABLE users ADD COLUMN IF NOT EXISTS last_login TIMESTAMP WITH TIME ZONE`,
+        `ALTER TABLE users ADD COLUMN IF NOT EXISTS avatar TEXT`,
         // Adiciona colunas novas na tabela PLUGINS
         `ALTER TABLE plugins ADD COLUMN IF NOT EXISTS config JSONB DEFAULT '{}'`,
         // Adiciona colunas novas na tabela SUBSCRIPTIONS
-        `ALTER TABLE subscriptions ADD COLUMN IF NOT EXISTS end_date DATE`
+        `ALTER TABLE subscriptions ADD COLUMN IF NOT EXISTS end_date DATE`,
+        // Adiciona colunas novas na tabela PLANS
+        `ALTER TABLE plans ADD COLUMN IF NOT EXISTS token_limit BIGINT DEFAULT 10000`
     ];
 
     for (const mig of migrations) {
         await query(mig);
     }
     
+    // 3.5 Atualizar Planos com Limites (Seed Data)
+    await query(`
+        INSERT INTO plans (id, name, price, description, token_limit) VALUES
+        ('starter', 'Starter', 99.00, 'Monitoramento básico para pequenas empresas. Atualização diária.', 10000),
+        ('pro', 'Enterprise Pro', 299.00, 'IA Avançada, Tempo Real e Alertas de Crise.', 1000000),
+        ('gov', 'Governo & Public', 1500.00, 'Infraestrutura dedicada para órgãos públicos e grandes volumes.', 5000000)
+        ON CONFLICT (id) DO UPDATE SET token_limit = EXCLUDED.token_limit;
+    `);
+
     // 4. Seed Admin (Garante que existe um Admin)
     const adminEmail = 'admin@sie.pro';
     const checkAdmin = await query('SELECT id FROM users WHERE email = $1', [adminEmail]);

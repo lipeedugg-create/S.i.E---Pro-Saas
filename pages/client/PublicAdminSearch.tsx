@@ -38,7 +38,7 @@ export const PublicAdminSearch: React.FC = () => {
   };
 
   return (
-    <div className="min-h-full bg-slate-900 text-slate-200 font-sans p-6 md:p-10">
+    <div className="p-6 md:p-10 font-sans min-h-full">
       
       {/* Header Institucional */}
       <div className="max-w-5xl mx-auto mb-10 text-center">

@@ -9,39 +9,67 @@ interface ClientDashboardProps {
 export const ClientDashboard: React.FC<ClientDashboardProps> = ({ user }) => {
   const [items, setItems] = useState<MasterItem[]>([]);
   const [loading, setLoading] = useState(true);
-  const [subs, setSubs] = useState<Subscription[]>([]);
+  const [subscription, setSubscription] = useState<Subscription | null>(null);
   const [plans, setPlans] = useState<Plan[]>([]);
 
   useEffect(() => {
     const fetchData = async () => {
+      setLoading(true);
+      // Independent fetches to prevent one failure from blocking the UI
       try {
-        const [itemsData, subsData, plansData] = await Promise.all([
-          api.getItemsByUserId(user.id),
-          api.getSubscriptions(),
-          api.getPlans()
+        const [itemsResult, subResult, plansResult] = await Promise.allSettled([
+            api.getItemsByUserId(user.id),
+            api.getClientSubscription(),
+            api.getPublicPlans()
         ]);
-        setItems(itemsData);
-        setSubs(subsData);
-        setPlans(plansData);
+
+        // 1. Items
+        if (itemsResult.status === 'fulfilled') {
+            setItems(itemsResult.value);
+        } else {
+            console.warn("Could not fetch items:", itemsResult.reason);
+            setItems([]);
+        }
+
+        // 2. Subscription
+        if (subResult.status === 'fulfilled') {
+            setSubscription(subResult.value);
+        } else {
+            console.warn("Could not fetch subscription (likely 404 if new user):", subResult.reason);
+            setSubscription(null);
+        }
+
+        // 3. Plans
+        if (plansResult.status === 'fulfilled') {
+            setPlans(plansResult.value);
+        } else {
+            console.warn("Could not fetch plans:", plansResult.reason);
+            setPlans([]);
+        }
+
       } catch (err) {
-        console.error(err);
+        console.error("Unexpected dashboard error:", err);
       } finally {
         setLoading(false);
       }
     };
 
     fetchData();
+    
+    // Polling for new items every 30s
     const interval = setInterval(() => {
-        api.getItemsByUserId(user.id).then(setItems).catch(console.error);
-    }, 15000);
+        api.getItemsByUserId(user.id)
+           .then(setItems)
+           .catch(e => console.warn("Polling error:", e));
+    }, 30000);
+    
     return () => clearInterval(interval);
   }, [user.id]);
 
-  // Derivar dados de assinatura
-  const mySub = subs.find(s => s.user_id === user.id);
-  const myPlan = mySub ? plans.find(p => p.id === mySub.plan_id) : null;
-  const isExpired = mySub?.status === 'expired' || (mySub?.end_date ? new Date(mySub.end_date) < new Date() : false);
-  const daysRemaining = mySub?.end_date ? Math.ceil((new Date(mySub.end_date).getTime() - new Date().getTime()) / (1000 * 60 * 60 * 24)) : 0;
+  // Derived State
+  const myPlan = subscription ? plans.find(p => p.id === subscription.plan_id) : null;
+  const isExpired = subscription?.status === 'expired' || (subscription?.end_date ? new Date(subscription.end_date) < new Date() : false);
+  const daysRemaining = subscription?.end_date ? Math.ceil((new Date(subscription.end_date).getTime() - new Date().getTime()) / (1000 * 60 * 60 * 24)) : 0;
 
   if (loading) {
     return (
@@ -55,7 +83,7 @@ export const ClientDashboard: React.FC<ClientDashboardProps> = ({ user }) => {
   }
 
   return (
-    <div className="p-8 bg-slate-900 min-h-full text-slate-200">
+    <div className="p-6 lg:p-8 text-slate-200">
       
       {/* Header */}
       <div className="flex flex-col md:flex-row md:items-end justify-between gap-4 mb-8">
@@ -69,7 +97,7 @@ export const ClientDashboard: React.FC<ClientDashboardProps> = ({ user }) => {
             }`}>
                 <span className={`w-2 h-2 rounded-full ${!isExpired ? 'bg-emerald-500 animate-pulse' : 'bg-red-500'}`}></span>
                 <span className="text-xs font-bold uppercase tracking-wider">
-                    {myPlan ? myPlan.name : 'Sem Plano'} {isExpired ? '(Expirado)' : 'Ativo'}
+                    {myPlan ? myPlan.name : (subscription ? 'Plano Desconhecido' : 'Sem Plano')} {isExpired ? '(Expirado)' : 'Ativo'}
                 </span>
             </div>
         </div>
@@ -99,7 +127,7 @@ export const ClientDashboard: React.FC<ClientDashboardProps> = ({ user }) => {
                 <div>
                     <p className="text-slate-400 text-xs font-bold uppercase tracking-wider mb-1">Status da Assinatura</p>
                     <p className="text-3xl font-bold text-white">
-                        {daysRemaining > 0 ? `${daysRemaining} dias` : 'Vencido'}
+                        {daysRemaining > 0 ? `${daysRemaining} dias` : (subscription ? 'Vencido' : 'Inativo')}
                     </p>
                 </div>
                 <div className="p-2 bg-purple-900/20 rounded-lg text-purple-400">
@@ -108,7 +136,7 @@ export const ClientDashboard: React.FC<ClientDashboardProps> = ({ user }) => {
                     </svg>
                 </div>
             </div>
-            <p className="text-xs text-slate-500">Renovação: {mySub?.end_date ? new Date(mySub.end_date).toLocaleDateString() : 'N/A'}</p>
+            <p className="text-xs text-slate-500">Renovação: {subscription?.end_date ? new Date(subscription.end_date).toLocaleDateString() : 'N/A'}</p>
         </div>
 
         <div className="bg-slate-800 border border-slate-700 rounded-xl p-6 shadow-lg">
