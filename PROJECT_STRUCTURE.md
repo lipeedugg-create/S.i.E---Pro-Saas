@@ -48,3 +48,12 @@ Arquitetura Backend Node.js/Express + Frontend React 19.
 ### Financial Core
 *   **Pagamentos Manuais:** Registro de entradas via Admin que estendem automaticamente a data de `end_date` da assinatura.
 *   **Auditoria de Uso:** Cada request para o Gemini é logado em `requests_log` com custo calculado (Tokens In/Out).
+
+# 3. Referência Técnica e Documentação
+
+Arquivos essenciais para manutenção e escalabilidade do sistema:
+
+*   **`DATABASE_SCHEMA.md`**: Definição completa das tabelas SQL, relacionamentos, tipos de dados e scripts de seed inicial.
+*   **`API_REFERENCE.md`**: Documentação dos endpoints REST, métodos, payloads e respostas.
+*   **`PLUGIN_MANUAL.md`**: Guia para desenvolvimento, empacotamento (.zip) e upload de novos plugins.
+*   **`README.md`**: Guia de instalação, variáveis de ambiente e comandos de execução.
