@@ -32,11 +32,13 @@ const getPluginConfig = async () => {
     return {};
 };
 
-// Função de validação manual do Schema (já que googleSearch não suporta responseSchema na API)
+// Função de validação manual do Schema
 const validateSchema = (data) => {
     const errors = [];
+    if (!data) throw new Error("Resposta da IA vazia.");
     if (!data.city) errors.push("Campo 'city' ausente.");
-    if (!data.mayor || !data.mayor.name) errors.push("Campo 'mayor.name' ausente.");
+    // Flexibiliza o 'mayor.name' para permitir que a IA diga "Não encontrado" sem quebrar a app
+    if (!data.mayor) errors.push("Objeto 'mayor' ausente.");
     if (!Array.isArray(data.councilors)) errors.push("Campo 'councilors' deve ser um array.");
     if (!Array.isArray(data.key_servants)) errors.push("Campo 'key_servants' deve ser um array.");
     
@@ -65,7 +67,7 @@ export const searchCityAdmin = async (city) => {
             ${negativePromptDB}
         `;
 
-        // 3. Prompt Reforçado para JSON (Substituindo responseSchema)
+        // 3. Prompt Reforçado para JSON
         const userPrompt = `
             Pesquise dados oficiais atualizados e gere o relatório administrativo para a cidade de: ${city} (Brasil).
             
@@ -79,11 +81,10 @@ export const searchCityAdmin = async (city) => {
                 "key_servants": [ { "name": "Nome", "department": "Secretaria", "role_type": "Comissionado/Efetivo", "estimated_salary": "R$ Valor" } ]
             }
             
-            IMPORTANTE: Retorne APENAS o JSON válido. Não use blocos de código markdown (\`\`\`json).
+            IMPORTANTE: Retorne APENAS o JSON válido. Não use blocos de código markdown (\`\`\`json). Apenas o objeto { ... }.
         `;
 
         // 4. Executa a geração com Search Grounding
-        // NOTA: responseSchema e responseMimeType removidos pois conflitam com googleSearch
         const response = await ai.models.generateContent({
             model: 'gemini-2.5-flash',
             contents: userPrompt,
@@ -95,28 +96,24 @@ export const searchCityAdmin = async (city) => {
         });
 
         // 5. Processamento e Limpeza da Resposta
-        let textResponse = response.text;
+        let textResponse = response.text || "{}";
         
-        // Remove Markdown se o modelo teimar em enviar
-        if (textResponse.includes('```json')) {
-            textResponse = textResponse.replace(/```json/g, '').replace(/```/g, '');
-        } else if (textResponse.includes('```')) {
-            textResponse = textResponse.replace(/```/g, '');
-        }
+        // Remove Markdown agressivamente
+        textResponse = textResponse.replace(/^```json\s*/, '').replace(/\s*```$/, '').replace(/^```\s*/, '');
 
         let data;
         try {
             data = JSON.parse(textResponse.trim());
         } catch (e) {
             console.error("Erro ao parsear JSON da IA:", textResponse);
-            throw new Error("A IA gerou uma resposta inválida que não pôde ser processada.");
+            throw new Error("A IA gerou uma resposta inválida que não pôde ser processada pelo sistema.");
         }
 
-        // 6. Validação Rigorosa (Aplicação)
+        // 6. Validação Rigorosa
         validateSchema(data);
 
         // Validação Lógica de Dados Vazios (Alucinação negativa)
-        if (data.mayor.name === "Não identificado" || data.mayor.name === "Nome") {
+        if (data.mayor && (data.mayor.name === "Não identificado" || data.mayor.name === "Nome")) {
              console.warn(`Alerta de baixa confiança para cidade: ${city}`);
         }
         
@@ -128,7 +125,7 @@ export const searchCityAdmin = async (city) => {
 
     } catch (error) {
         console.error("AI Search Error:", error);
-        // Repassa a mensagem de erro para o frontend (pode ser erro de validação ou de rede)
+        // Repassa a mensagem de erro para o frontend
         throw new Error(error.message || "Falha na inteligência governamental.");
     }
 };

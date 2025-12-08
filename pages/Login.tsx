@@ -294,6 +294,13 @@ export const Login: React.FC<LoginProps> = ({ onLogin, initialPlan }) => {
             <div className="animate-fade-in">
                 {loadingPlans ? (
                     <div className="text-center py-10 text-slate-500">Carregando planos...</div>
+                ) : availablePlans.length === 0 ? (
+                    <div className="text-center py-10">
+                        <p className="text-slate-400 text-sm mb-4">Nenhum plano disponível no momento.</p>
+                        <button onClick={() => submitRegistration('starter')} className="bg-blue-600 text-white px-4 py-2 rounded">
+                            Continuar com Plano Padrão
+                        </button>
+                    </div>
                 ) : (
                     <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 mb-6">
                         {availablePlans.map(plan => (

@@ -35,7 +35,8 @@ export const ClientDashboard: React.FC<ClientDashboardProps> = ({ user }) => {
         if (subResult.status === 'fulfilled') {
             setSubscription(subResult.value);
         } else {
-            console.warn("Could not fetch subscription (likely 404 if new user):", subResult.reason);
+            // Subscription fetch often returns null 200 OK, but if it fails 500, we handle it here
+            console.warn("Could not fetch subscription data:", subResult.reason);
             setSubscription(null);
         }
 
@@ -93,11 +94,11 @@ export const ClientDashboard: React.FC<ClientDashboardProps> = ({ user }) => {
         </div>
         <div className="flex items-center gap-3">
             <div className={`px-4 py-2 rounded-lg border flex items-center gap-2 ${
-                !isExpired ? 'bg-emerald-900/20 border-emerald-900/50 text-emerald-400' : 'bg-red-900/20 border-red-900/50 text-red-400'
+                !isExpired && subscription ? 'bg-emerald-900/20 border-emerald-900/50 text-emerald-400' : 'bg-red-900/20 border-red-900/50 text-red-400'
             }`}>
-                <span className={`w-2 h-2 rounded-full ${!isExpired ? 'bg-emerald-500 animate-pulse' : 'bg-red-500'}`}></span>
+                <span className={`w-2 h-2 rounded-full ${!isExpired && subscription ? 'bg-emerald-500 animate-pulse' : 'bg-red-500'}`}></span>
                 <span className="text-xs font-bold uppercase tracking-wider">
-                    {myPlan ? myPlan.name : (subscription ? 'Plano Desconhecido' : 'Sem Plano')} {isExpired ? '(Expirado)' : 'Ativo'}
+                    {myPlan ? myPlan.name : (subscription ? 'Plano Desconhecido' : 'Sem Plano Ativo')} {subscription && isExpired ? '(Expirado)' : ''}
                 </span>
             </div>
         </div>
@@ -127,7 +128,7 @@ export const ClientDashboard: React.FC<ClientDashboardProps> = ({ user }) => {
                 <div>
                     <p className="text-slate-400 text-xs font-bold uppercase tracking-wider mb-1">Status da Assinatura</p>
                     <p className="text-3xl font-bold text-white">
-                        {daysRemaining > 0 ? `${daysRemaining} dias` : (subscription ? 'Vencido' : 'Inativo')}
+                        {subscription ? (daysRemaining > 0 ? `${daysRemaining} dias` : 'Vencido') : 'Inativo'}
                     </p>
                 </div>
                 <div className="p-2 bg-purple-900/20 rounded-lg text-purple-400">

@@ -161,16 +161,30 @@ export const initDatabase = async () => {
         console.log(`✅ Admin Default criado: ${adminEmail} / admin123`);
     }
 
-    // 5. Seed Plugin Essencial (Garante que o plugin Raio-X existe)
-    const pluginId = 'a0eebc99-9c0b-4ef8-bb6d-6bb9bd380a99';
-    const checkPlugin = await query('SELECT id FROM plugins WHERE id = $1', [pluginId]);
-    if (checkPlugin.rows.length === 0) {
-        await query(`
-            INSERT INTO plugins (id, name, description, icon, category, status, price)
-            VALUES ($1, 'Raio-X Administrativo', 'Consulta automatizada de estruturas governamentais via IA.', '🏛️', 'utility', 'active', 50.00)
-        `, [pluginId]);
-        console.log('✅ Plugin Raio-X restaurado.');
-    }
+    // 5. Seed Plugins (Garante que a loja não esteja vazia)
+    // Plugin 1: Raio-X
+    const pluginRaioX = 'a0eebc99-9c0b-4ef8-bb6d-6bb9bd380a99';
+    await query(`
+        INSERT INTO plugins (id, name, description, icon, category, status, price)
+        VALUES ($1, 'Raio-X Administrativo', 'Consulta automatizada de estruturas governamentais via IA.', '🏛️', 'utility', 'active', 50.00)
+        ON CONFLICT (id) DO NOTHING
+    `, [pluginRaioX]);
+
+    // Plugin 2: Sentiment
+    const pluginSentiment = 'b1eebc99-9c0b-4ef8-bb6d-6bb9bd380b01';
+    await query(`
+        INSERT INTO plugins (id, name, description, icon, category, status, price)
+        VALUES ($1, 'Análise de Sentimento Pro', 'Classificação avançada de tom (Positivo/Negativo) em notícias.', '🧠', 'analytics', 'active', 29.90)
+        ON CONFLICT (id) DO NOTHING
+    `, [pluginSentiment]);
+
+    // Plugin 3: PDF
+    const pluginPdf = 'b1eebc99-9c0b-4ef8-bb6d-6bb9bd380b02';
+    await query(`
+        INSERT INTO plugins (id, name, description, icon, category, status, price)
+        VALUES ($1, 'Exportador PDF', 'Gerar relatórios executivos em PDF com 1 clique.', '📄', 'utility', 'active', 15.00)
+        ON CONFLICT (id) DO NOTHING
+    `, [pluginPdf]);
 
     console.log('✅ Banco de Dados sincronizado e pronto.');
   } catch (err) {

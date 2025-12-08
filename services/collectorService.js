@@ -9,12 +9,20 @@ const ai = apiKey ? new GoogleGenAI({ apiKey }) : null;
 const COST_INPUT_PER_1K_USD = 0.000125;
 const COST_OUTPUT_PER_1K_USD = 0.000375;
 
-// Helper simples para extrair texto de HTML
+// Helper Aprimorado para extrair texto de HTML
 const extractTextFromHtml = (html) => {
-    let text = html.replace(/<script[^>]*>([\S\s]*?)<\/script>/gmi, "");
-    text = text.replace(/<style[^>]*>([\S\s]*?)<\/style>/gmi, "");
-    text = text.replace(/<[^>]+>/g, "\n");
-    text = text.replace(/\n\s*\n/g, "\n").trim();
+    let text = html;
+    // Remove scripts e estilos
+    text = text.replace(/<script[^>]*>([\S\s]*?)<\/script>/gmi, " ");
+    text = text.replace(/<style[^>]*>([\S\s]*?)<\/style>/gmi, " ");
+    // Remove comentários
+    text = text.replace(/<!--[\s\S]*?-->/g, " ");
+    // Remove tags HTML
+    text = text.replace(/<[^>]+>/g, " ");
+    // Normaliza espaços (remove quebras de linha excessivas e tabs)
+    text = text.replace(/\s+/g, " ").trim();
+    
+    // Limita tamanho para não estourar contexto
     return text.substring(0, 15000);
 };
 

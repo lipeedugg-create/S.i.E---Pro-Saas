@@ -17,10 +17,7 @@ router.get('/users', async (req, res) => {
                status, phone, last_login 
         FROM users 
         ORDER BY created_at DESC
-    `).catch(async () => {
-         // Fallback robusto garantindo que campos usados na UI existam
-         return await query('SELECT id, name, email, role, created_at, status, phone, last_login FROM users ORDER BY created_at DESC');
-    });
+    `);
     res.json(result.rows);
   } catch (err) {
     res.status(500).json({ error: err.message });
@@ -35,20 +32,11 @@ router.post('/users', async (req, res) => {
     const salt = await bcrypt.genSalt(10);
     const hash = await bcrypt.hash(pwd, salt);
     
-    try {
-        const result = await query(
-          'INSERT INTO users (name, email, role, password_hash, phone, status) VALUES ($1, $2, $3, $4, $5, $6) RETURNING *',
-          [name, email, role, hash, phone, status || 'active']
-        );
-        res.json(result.rows[0]);
-    } catch(e) {
-        // Fallback para schema antigo se necessário
-        const result = await query(
-            'INSERT INTO users (name, email, role, password_hash) VALUES ($1, $2, $3, $4) RETURNING *',
-            [name, email, role, hash]
-        );
-        res.json(result.rows[0]);
-    }
+    const result = await query(
+        'INSERT INTO users (name, email, role, password_hash, phone, status) VALUES ($1, $2, $3, $4, $5, $6) RETURNING *',
+        [name, email, role, hash, phone, status || 'active']
+    );
+    res.json(result.rows[0]);
 
   } catch (err) {
     res.status(500).json({ error: err.message });
@@ -60,35 +48,42 @@ router.put('/users/:id', async (req, res) => {
   const { name, email, role, password, phone, status } = req.body;
   
   try {
-    let queryText = 'UPDATE users SET name = $1, email = $2, role = $3, phone = $4, status = $5';
-    let queryParams = [name, email, role, phone, status];
-    let paramIdx = 6;
+    // Construção Dinâmica de Query Segura
+    const updates = [];
+    const values = [];
+    let idx = 1;
 
+    // Campos Obrigatórios/Padrão
+    updates.push(`name = $${idx++}`); values.push(name);
+    updates.push(`email = $${idx++}`); values.push(email);
+    updates.push(`role = $${idx++}`); values.push(role);
+    updates.push(`phone = $${idx++}`); values.push(phone);
+    updates.push(`status = $${idx++}`); values.push(status);
+
+    // Senha Opcional
     if (password && password.trim() !== '') {
         const salt = await bcrypt.genSalt(10);
         const hash = await bcrypt.hash(password, salt);
-        queryText += `, password_hash = $${paramIdx++}`;
-        queryParams.push(hash);
+        updates.push(`password_hash = $${idx++}`);
+        values.push(hash);
     }
 
-    queryText += ` WHERE id = $${paramIdx}`;
-    queryParams.push(id);
-    queryText += ' RETURNING *';
+    // ID sempre é o último parâmetro
+    values.push(id);
 
-    try {
-        const result = await query(queryText, queryParams);
-        res.json(result.rows[0]);
-    } catch (e) {
-         if (password) {
-            await query('UPDATE users SET name=$1, email=$2, role=$3, password_hash=$4 WHERE id=$5', [name,email,role,queryParams[queryParams.length-2], id]);
-         } else {
-            await query('UPDATE users SET name=$1, email=$2, role=$3 WHERE id=$4', [name,email,role, id]);
-         }
-         res.json({ message: "Update parcial realizado" });
+    const queryText = `UPDATE users SET ${updates.join(', ')} WHERE id = $${idx} RETURNING *`;
+    
+    const result = await query(queryText, values);
+    
+    if (result.rows.length === 0) {
+        return res.status(404).json({ message: "Usuário não encontrado" });
     }
+
+    res.json(result.rows[0]);
 
   } catch (err) {
-    res.status(500).json({ error: err.message });
+    console.error("Update User Error:", err);
+    res.status(500).json({ error: "Erro ao atualizar usuário: " + err.message });
   }
 });
 
@@ -110,17 +105,21 @@ router.post('/users/:id/subscription', async (req, res) => {
     if (!plan_id) return res.status(400).json({ message: "Plan ID is required" });
 
     try {
+        // Verifica se já existe assinatura
         const existing = await query('SELECT * FROM subscriptions WHERE user_id = $1', [id]);
         
         if (existing.rows.length > 0) {
+            // Atualiza existente: Ativa status e garante data futura
             await query(
                 `UPDATE subscriptions 
-                 SET plan_id = $1, status = 'active', 
-                     end_date = CASE WHEN end_date < CURRENT_DATE THEN CURRENT_DATE + INTERVAL '30 days' ELSE end_date END
+                 SET plan_id = $1, 
+                     status = 'active', 
+                     end_date = GREATEST(end_date, CURRENT_DATE + INTERVAL '30 days')
                  WHERE user_id = $2`,
                 [plan_id, id]
             );
         } else {
+            // Cria nova
             await query(
                 `INSERT INTO subscriptions (user_id, plan_id, status, start_date, end_date) 
                  VALUES ($1, $2, 'active', CURRENT_DATE, CURRENT_DATE + INTERVAL '30 days')`,
@@ -136,18 +135,22 @@ router.post('/users/:id/subscription', async (req, res) => {
 router.get('/users/:id/payments', async (req, res) => {
     const { id } = req.params;
     try {
-        const subRes = await query('SELECT id FROM subscriptions WHERE user_id = $1', [id]);
-        if(subRes.rows.length === 0) return res.json([]);
-
-        const subId = subRes.rows[0].id;
-        const payments = await query('SELECT * FROM payments WHERE subscription_id = $1 ORDER BY payment_date DESC', [subId]);
-        res.json(payments.rows);
+        // Busca payments via subscription ID associado ao user
+        const result = await query(`
+            SELECT p.* 
+            FROM payments p
+            JOIN subscriptions s ON p.subscription_id = s.id
+            WHERE s.user_id = $1
+            ORDER BY p.payment_date DESC
+        `, [id]);
+        
+        res.json(result.rows);
     } catch(err) {
         res.status(500).json({ error: err.message });
     }
 });
 
-// Impersonate User (Login As) - AGORA USA CHAVE CENTRALIZADA
+// Impersonate User (Login As)
 router.post('/users/:id/impersonate', async (req, res) => {
   const { id } = req.params;
   
@@ -158,7 +161,7 @@ router.post('/users/:id/impersonate', async (req, res) => {
     }
     const user = result.rows[0];
 
-    // Gera token compatível com o middleware 'authenticate'
+    // Gera token temporário
     const token = jwt.sign(
       { id: user.id, role: user.role, name: user.name },
       JWT_SECRET,
@@ -274,13 +277,11 @@ router.post('/payments', async (req, res) => {
       [subscription_id, amount, payment_date, reference_id, notes, admin_recorded_by]
     );
 
+    // Auto-renovação: Adiciona 30 dias à data atual ou à data de vencimento se futura
     await query(
       `UPDATE subscriptions 
        SET status = 'active',
-           end_date = CASE 
-             WHEN end_date < CURRENT_DATE THEN CURRENT_DATE + INTERVAL '30 days'
-             ELSE end_date + INTERVAL '30 days'
-           END
+           end_date = GREATEST(end_date, CURRENT_DATE) + INTERVAL '30 days'
        WHERE id = $1`,
       [subscription_id]
     );
