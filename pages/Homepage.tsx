@@ -38,7 +38,7 @@ export const Homepage: React.FC<HomepageProps> = ({ onSelectPlan }) => {
         <div className="max-w-7xl mx-auto px-6 relative z-10 w-full text-center">
           <div className="inline-flex items-center gap-2 py-1.5 px-4 rounded-full bg-slate-800/80 border border-slate-700/50 backdrop-blur-md text-blue-400 text-xs font-bold uppercase tracking-wider mb-8 animate-fade-in-up shadow-xl hover:border-blue-500/50 transition-colors cursor-default">
             <span className="w-2 h-2 rounded-full bg-blue-500 animate-ping"></span>
-            <span className="relative">IA Generativa v5.0 Live</span>
+            <span className="relative">IA Generativa v2.0 Live</span>
           </div>
           
           <h1 className="text-5xl md:text-7xl font-bold mb-6 tracking-tight leading-[1.1] text-white drop-shadow-lg">

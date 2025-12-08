@@ -40,7 +40,7 @@ export const PublicLayout: React.FC<PublicLayoutProps> = ({ children, onNavigate
              <div className="w-9 h-9 bg-gradient-to-br from-blue-600 to-indigo-600 rounded-lg flex items-center justify-center font-bold text-white text-sm shadow-lg shadow-blue-500/20 group-hover:scale-105 transition-transform">S</div>
              <div className="flex flex-col">
                 <span className="font-bold text-lg tracking-tight text-white leading-none">S.I.E. PRO</span>
-                <span className="text-[9px] text-blue-400 font-bold uppercase tracking-widest mt-0.5">Enterprise v5.0</span>
+                <span className="text-[9px] text-blue-400 font-bold uppercase tracking-widest mt-0.5">Enterprise v2.0</span>
              </div>
           </div>
           
@@ -157,7 +157,7 @@ export const PublicLayout: React.FC<PublicLayoutProps> = ({ children, onNavigate
                 <div className="flex gap-4">
                     <span className="flex items-center gap-1"><span className="w-1.5 h-1.5 bg-emerald-500 rounded-full"></span> Systems Online</span>
                     <span>São Paulo, BR</span>
-                    <span>v5.2.0</span>
+                    <span>v2.0.0</span>
                 </div>
             </div>
         </div>

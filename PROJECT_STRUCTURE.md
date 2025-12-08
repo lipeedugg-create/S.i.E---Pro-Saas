@@ -1,15 +1,15 @@
-# 1. Mapa do Projeto (Backend Node.js/Express)
+# 1. Mapa do Projeto (S.I.E. PRO v2.0)
 
-Conforme especificação da arquitetura S.I.E. PRO (v5.0 Enterprise):
+Arquitetura Backend Node.js/Express + Frontend React 19.
 
 ```text
 /sie-pro-saas
 ├── .env                  # Configurações de DB, JWT e CRON_KEY
 ├── package.json          # Dependências: express, pg, bcryptjs, jwt, dotenv, @google/genai
-├── server.js             # Ponto de entrada (API Gateway + Static Serve)
+├── server.js             # Ponto de entrada (API Gateway + Static Serve + Scheduler)
 ├── config/
-│   ├── db.js             # Conexão PostgreSQL (Pool com suporte SSL)
-│   └── initDb.js         # Script de Inicialização e Auto-Migration (Schema v5.0)
+│   ├── db.js             # Conexão PostgreSQL (Pool Otimizado com SSL)
+│   └── initDb.js         # Script de Inicialização e Auto-Migration (Schema v2.0)
 ├── middleware/
 │   └── auth.js           # Funções authenticate (JWT) e authorizeAdmin
 ├── services/
@@ -18,32 +18,33 @@ Conforme especificação da arquitetura S.I.E. PRO (v5.0 Enterprise):
 │   ├── aiSearchService.js  # PLUGIN: Lógica do Raio-X Administrativo (Public Admin Search)
 │   └── scheduler.js      # CRON: Gerenciador de tarefas em background (60s tick)
 └── routes/
-    ├── auth.js           # Login e Validação de Sessão
-    ├── admin.js          # Controle Total: CRUD Users, Plans, Plugins, Payments
-    ├── client.js         # Área do Cliente: Dashboard, Config e Tools
+    ├── auth.js           # Login, Register, Recover, Public Plans
+    ├── admin.js          # Controle Total: 
+    │                     # - Users (CRUD, Impersonate, Status)
+    │                     # - Plans (CRUD)
+    │                     # - Plugins (Upload, Config, Toggle)
+    │                     # - Payments (Manual Entry)
+    ├── client.js         # Área do Cliente: 
+    │                     # - Dashboard (Items Feed)
+    │                     # - Config (Keywords/URLs)
+    │                     # - Profile & Financials
+    │                     # - Generic AI Plugin Gateway
     └── monitoring.js     # Webhook para triggers externos
 ```
 
-# 2. Schema SQL Final (v5.0 Consolidated)
+# 2. Funcionalidades Chave (Backend)
 
-O sistema utiliza PostgreSQL com extensão `pgcrypto` para UUIDs.
-O script `config/initDb.js` gerencia a criação e migração destas tabelas automaticamente.
+### User Management (Admin)
+*   **CRUD Completo:** Criação, edição e listagem de usuários.
+*   **Gestão de Status:** Bloqueio (`suspended`) e ativação (`active`) de contas.
+*   **Impersonation:** Rota `POST /users/:id/impersonate` gera token de acesso temporário para o admin logar como cliente.
 
-### Tabelas Principais
-1. **`users`**: Armazena credenciais, roles (admin/client) e status do CRM (active/inactive/suspended).
-2. **`plans`**: Definição dos níveis de assinatura (Starter, Enterprise, etc).
-3. **`plugins`**: Catálogo de módulos adicionais (Marketplace).
-4. **`plan_plugins`**: Tabela pivô definindo quais planos acessam quais plugins.
-5. **`subscriptions`**: Gerencia o ciclo de vida da assinatura e data de vencimento (`end_date`).
+### Plugin System
+*   **Estrutura:** Plugins são pastas estáticas servidas em `/plugins/:id`.
+*   **Isolamento:** Rodam em `iframe` com sandbox no frontend.
+*   **Comunicação:** Usam `window.postMessage` para handshake de token.
+*   **AI Gateway:** Rota `POST /client/plugin/ai` permite que plugins usem o Gemini sem expor a API Key no frontend.
 
-### Tabelas de Inteligência & Logs
-6. **`monitoring_configs`**: Configurações do agente de coleta (keywords, urls, frequencia).
-7. **`master_items`**: Armazena as notícias coletadas e os resumos gerados pela IA.
-8. **`payments`**: Registro imutável de transações financeiras manuais.
-9. **`requests_log`**: Auditoria detalhada de consumo de tokens da API Gemini para faturamento.
-
----
-
-### Notas de Deploy
-* **Inicialização:** O servidor executa `initDatabase()` ao iniciar. Se as tabelas não existirem, elas são criadas. Se existirem colunas faltando (ex: atualização de versão), elas são adicionadas via `ALTER TABLE`.
-* **Admin Padrão:** O sistema cria automaticamente `admin@sie.pro` / `admin123` se nenhum usuário existir.
+### Financial Core
+*   **Pagamentos Manuais:** Registro de entradas via Admin que estendem automaticamente a data de `end_date` da assinatura.
+*   **Auditoria de Uso:** Cada request para o Gemini é logado em `requests_log` com custo calculado (Tokens In/Out).

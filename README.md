@@ -1,36 +1,35 @@
-# S.I.E. PRO (v4.1) - Strategic Intelligence Enterprise
+# S.I.E. PRO (v2.0) - Strategic Intelligence Enterprise
 
-**S.I.E. PRO** is a full-stack SaaS platform for strategic reputation monitoring and governmental intelligence. It utilizes **Google Gemini 2.5 Flash** to analyze news, social signals, and public transparency data in real-time.
+**S.I.E. PRO** é uma plataforma SaaS full-stack para monitoramento de reputação estratégica e inteligência governamental. Utiliza **Google Gemini 2.5 Flash** para analisar notícias, sinais sociais e dados de transparência pública em tempo real.
 
 ## 🚀 Tech Stack
 
 - **Frontend:** React 19, TailwindCSS, Vite.
 - **Backend:** Node.js, Express.
-- **Database:** PostgreSQL (via `pg` pool).
+- **Database:** PostgreSQL (via `pg` pool otimizado).
 - **AI Core:** Google Gemini API (`gemini-2.5-flash`).
-- **Authentication:** JWT (JSON Web Tokens) with Role-Based Access Control (RBAC).
+- **Authentication:** JWT (JSON Web Tokens) com RBAC e Impersonation.
 
 ---
 
-## 🛠️ Installation & Setup
+## 🛠️ Instalação e Setup
 
-### 1. Prerequisites
+### 1. Pré-requisitos
 - Node.js v18+
 - PostgreSQL Database
 
-### 2. Environment Variables
-Create a `.env` file in the root directory:
+### 2. Variáveis de Ambiente
+Crie um arquivo `.env` na raiz:
 
 ```env
 PORT=3000
 NODE_ENV=development
 
 # Database Connection
-DB_HOST=localhost
-DB_PORT=5432
-DB_NAME=sie_pro
-DB_USER=postgres
-DB_PASSWORD=your_password
+# Exemplo Local
+DATABASE_URL=postgres://postgres:senha@localhost:5432/sie_pro
+# Exemplo Cloud (Neon/Render) - O sistema detecta SSL automaticamente
+# DATABASE_URL=postgres://user:pass@ep-xyz.us-east-1.aws.neon.tech/sie_pro?sslmode=require
 
 # Security
 JWT_SECRET=super_secret_key_change_in_production
@@ -40,57 +39,57 @@ CRON_KEY=secure_key_for_triggering_jobs
 API_KEY=your_google_gemini_api_key
 ```
 
-### 3. Database Migration (Important v4.1)
-The schema has been updated to include CRM fields (`status`, `phone`, `last_login`). 
-Run the SQL script found in `pages/Documentation.tsx` (Database Tab) to migrate your existing database safely. The script uses `ALTER TABLE IF NOT EXISTS` commands.
+### 3. Migração de Banco de Dados
+O sistema possui **Auto-Migration**. Ao iniciar o servidor pela primeira vez (`npm start`), o script `config/initDb.js` criará todas as tabelas necessárias e o usuário Admin padrão.
 
-### 4. Run the Application
+### 4. Executar a Aplicação
 
-**Development Mode:**
+**Modo Desenvolvimento:**
 ```bash
-# Terminal 1: Frontend
+# Terminal 1: Frontend (Vite)
 npm run dev
 
-# Terminal 2: Backend
+# Terminal 2: Backend (Express)
 npm start
 ```
 
-**Production Build:**
+**Modo Produção:**
 ```bash
-# Build React App
+# Build do React App
 npm run build
 
-# Start Server (Serves static build + API)
+# Iniciar Servidor (Serve o build estático + API)
 node server.js
 ```
 
 ---
 
-## 🔑 Key Features (v4.1 Enterprise)
+## 🔑 Funcionalidades Principais (v2.0 Enterprise)
 
-### 1. Advanced CRM & User Lifecycle
-- **Status Control:** Admins can manage user states (`active`, `inactive`, `suspended`).
-- **Impersonation:** Securely log in as any client for support purposes.
-- **Audit:** Track `last_login` and API usage costs.
+### 1. CRM & Gestão de Usuários (Novo)
+- **Painel Admin:** Listagem completa com filtros de status e plano.
+- **Status de Conta:** Bloqueie ou ative usuários (`active`, `inactive`, `suspended`).
+- **Impersonation:** Login como cliente. O admin pode acessar a visão do usuário para suporte sem saber a senha.
 
-### 2. Plugin Marketplace
-- **Architecture:** Modular system allowing features to be enabled/disabled per plan.
-- **Raio-X Administrativo:** An AI-powered tool (Plugin) that generates transparency reports for Brazilian cities using Gemini.
+### 2. Marketplace de Plugins
+- **Arquitetura Modular:** Instale funcionalidades extras via upload de arquivos `.ZIP`.
+- **Raio-X Administrativo:** Ferramenta nativa que gera relatórios de transparência municipal usando IA.
+- **AI Gateway:** Plugins frontend podem acessar o Gemini de forma segura e auditada.
 
-### 3. Financial Management v2
-- **Atomic Renewals:** Payment recording automatically updates subscription validity based on current status logic.
-- **Revenue Analytics:** Real-time MRR (Monthly Recurring Revenue) dashboard.
+### 3. Gestão Financeira
+- **Renovação Atômica:** O registro de pagamento estende automaticamente a validade da assinatura.
+- **Analytics:** Dashboard de MRR (Receita Recorrente Mensal) em tempo real.
 
-### 4. AI & Monitoring
-- **Real-time Feed:** Stream of analyzed URLs/News with sentiment analysis.
-- **Cost Tracking:** Every AI token is counted and converted to USD cost for billing transparency.
+### 4. Monitoramento & IA
+- **Crawler Inteligente:** Varredura de URLs com análise de sentimento.
+- **Auditoria de Custos:** Rastreamento preciso de consumo de tokens (Input/Output) convertido para Dólar.
 
 ---
 
-## 📂 Project Structure
+## 📂 Estrutura de Pastas
 
-- `/config` - Database connection pool.
-- `/middleware` - Auth and Admin verification.
-- `/routes` - API definitions (Auth, Admin, Client, Monitoring).
-- `/services` - Business logic (Gemini integration, Logs, AI Search).
-- `/src` (root for frontend) - React components and pages.
+- `/config` - Conexão de banco e scripts de init.
+- `/routes` - Definições de API (Auth, Admin, Client).
+- `/services` - Lógica de negócio (Gemini, Logs, Scheduler).
+- `/src` - Código fonte React (Pages, Components).
+- `/plugins` - Diretório de arquivos estáticos dos plugins instalados.
